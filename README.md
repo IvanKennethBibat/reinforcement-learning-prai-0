@@ -1,11 +1,11 @@
 # Reinforcement-Learning-PRAI-0
-This is Assignment 1 of MSc Module: Principles of Artificial Intelligence. This is a PyGame desktop app to demonstrate a working reinforcement learning NPC in a turn-based battle with Dynamic Difficulty Adjustment (DDA), similar to Final Fantasy 7, or Pokemon games.
+This is a PyGame app to demonstrate a working reinforcement learning NPC in a turn-based battle with Dynamic Difficulty Adjustment (DDA), similar to Final Fantasy 7, or Pokemon games.
 
 Q-learning is used as the primary algorithm, then further experiments with other algorithms will be tried and tested.
 
 ## Requirements
 ```text
-python v3.14.*
+python v3.13.*
 
 gymnasium==1.4.0
 matplotlib==3.11.2
@@ -52,3 +52,14 @@ Both players will have the same moveset and same base stats:
 - Moves requiring mana that the player does not have will be unavailable.
 - Moves from both players are made before any actions are completed.
 - Damage is determined by the max damage multiplied by a random integer between 85-100, divided by 100, then rounded down, like in the pokemon games.
+
+## Hyperparameters
+- Epsilon (ε)
+    - Determines the balance between exploitation of known 'good' moves over exploration of new unseen moves.
+    - A value of 0 (never explore new actions, always exploit) to 1 (acts randomly each step).
+- Alpha (α)
+    - Determines the learning-rate of the agent at each training step, adjusting weights in response to the error in each step.
+    - A value of 0 (it learns nothing from new experiences) to 1 (Overwrites old knowledge with the latest experience).
+- Gamma (γ)
+    - The discount factor, determines the value of rewards now vs. future rewards to the agent.
+    - A value of 0 (immediate rewards only) to 1 (Later/Immediate rewards matter the same to the agent).
