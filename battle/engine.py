@@ -31,3 +31,23 @@ MOVES = {
     Move.HEAL: MoveStats(mana_cost=8, heal=20),
     Move.DEFEND:  MoveStats(mana_cost=0, mana_gain=5)
 }
+
+@dataclass
+class Battler:
+    hp: int = MAX_HP
+    mana: int = MAX_MANA
+    defending: bool= False
+    honed: bool = False
+
+    @property
+    def is_ko(self) -> bool:
+        if self.hp <= 0:
+            return True
+
+def legal_moves(battler: Battler) -> list[Move]:
+    moves = []
+
+    for move in Move:
+        if MOVES[move].mana_cost <= battler.mana:
+            moves.append(move)
+    return moves
