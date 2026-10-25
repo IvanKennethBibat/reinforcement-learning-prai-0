@@ -1,0 +1,12 @@
+[project]
+name = "reinforcement-learning-prai-0"
+version = "0.1.0"
+description = "This is a repository for Assignment 1 of MSc Module: Principles of Artificial Intelligence. This is a PyGame desktop app to demonstrate a working reinforcement learning NPC in a turn-based battle, similar to Final Fantasy 7, or Pokemon."
+readme = "README.md"
+requires-python = "==3.13.*"
+dependencies = [
+    "gymnasium==1.4.0",
+    "matplotlib==3.11.2",
+    "numpy==2.5.4",
+    "pygame-ce==2.5.8",
+]
