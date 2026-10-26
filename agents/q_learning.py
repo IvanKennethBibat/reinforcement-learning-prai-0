@@ -26,3 +26,12 @@ class QLearningAgent:
             target = r + self.gamma * best_next
 
         self.q[s,a] += self.alpha * (target - self.q[s,a])
+
+    def save(self, path):
+        np.save(path, self.q)
+
+    @classmethod
+    def load(cls, path):
+        agent = cls(epsilon=0.0)
+        agent.q = np.load(path)
+        return agent
