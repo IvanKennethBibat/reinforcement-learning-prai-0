@@ -30,3 +30,11 @@ def test_terminal_update_moves_to_reward():
     agent.update(0,0,1.0,5,np.ones(5, dtype=np.int8), terminated = True)
 
     assert agent.q[0,0] == pytest.approx(0.1)
+
+def test_save_load_round_trip(tmp_path):
+    agent = QLearningAgent()
+    agent.q[0] = [0.2, 0.9, 0.1, 0.5, 0.3]
+    path = tmp_path / "q.npy"
+    agent.save(path)
+    clone = QLearningAgent.load(path)
+    assert np.array_equal(agent.q, clone.q)
