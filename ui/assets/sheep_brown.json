@@ -1,0 +1,16 @@
+{
+ "frame": [
+  24,
+  24
+ ],
+ "rows": [
+  "down",
+  "up",
+  "side",
+  "graze_down",
+  "graze_side"
+ ],
+ "columns": 4,
+ "frame_time": 0.0,
+ "tips": {}
+}

@@ -1,0 +1,14 @@
+{
+ "frame": [
+  20,
+  26
+ ],
+ "rows": [
+  "down",
+  "up",
+  "side"
+ ],
+ "columns": 2,
+ "frame_time": 0.14,
+ "tips": {}
+}
