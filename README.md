@@ -24,6 +24,20 @@ pygame-ce==2.5.8
 - matplotlib
     - Creates the visualisation of the RL model training pipeline: learning curves, baseline comparisons, Q-table heatmaps, and adaptation plots.
 
+## Playing
+```bash
+uv run python -m ui
+```
+Arrow keys or WASD to walk and to pick a move, Enter or Space to confirm. Number keys 1-5 and the mouse also work in battle. Esc quits.
+
+You play Pipkin, a small black cat clearing slimes out of a sunny valley. You start in the village, with roads out to the western meadow, the island court and the old ruins, and you can take them in any order. Back paths link the three areas, and two side areas are there to explore. Sheep graze and wander around the map, and hop away if you get too close. Foes start a fight when you get close, and beating all three slimes opens the Great Hall to the north, where Vesper waits. Every fight starts at full HP and mana, matching how the agents are trained. Foes and their policies are set in `ui/encounters.py`, and the level is a text map in `ui/assets/level.txt`.
+
+To change the level, run `uv run python -m ui.editor` and paint with the mouse. Left click paints, right click picks up a tile, the arrow keys or WASD scroll, Ctrl+S saves and Ctrl+Z undoes. It won't save a level that can't be finished, such as one with a slime walled off.
+
+Character art lives in sprite sheets in `ui/assets`, which you can edit in any pixel editor as long as the frame grid stays the same. `uv run python -m ui.bake_sprites` regenerates them from the drawing code and overwrites hand edits, so commit edited sheets first.
+
+Pipkin's moves are Attack, Swipe, Sharpen Claws, Block and Heal. Heal uses one of three potions per fight rather than mana. These are Pipkin's names for the engine's moves, and only Pipkin's Heal is limited, so the RL environment is unchanged.
+
 ## Moves
 Both players will have the same moveset and same base stats:
 
