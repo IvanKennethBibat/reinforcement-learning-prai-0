@@ -43,17 +43,26 @@ class Battler:
     mana: int = MAX_MANA
     defending: bool= False
     honed: bool = False
+    heal_potions: int | None = None  # None: Heal costs mana. A number: Heal uses these instead.
 
     @property
     def is_ko(self) -> bool:
         return self.hp <= 0
 
 
+def mana_cost(battler: Battler, move: Move) -> int:
+    if move == Move.HEAL and battler.heal_potions is not None:
+        return 0
+    return MOVES[move].mana_cost
+
+
 def legal_moves(battler: Battler) -> list[Move]:
     moves = []
 
     for move in Move:
-        if MOVES[move].mana_cost <= battler.mana:
+        if move == Move.HEAL and battler.heal_potions == 0:
+            continue
+        if mana_cost(battler, move) <= battler.mana:
             moves.append(move)
     return moves
 
@@ -81,8 +90,11 @@ def battle_over(a: Battler, b: Battler, turn: int) -> Outcome | None:
 def resolve_turn(a: Battler, b: Battler, move_a: Move, move_b: Move, rng) -> dict:
 
     # 1. Pay Mana costs for both moves
-    a.mana -= MOVES[move_a].mana_cost
-    b.mana -= MOVES[move_b].mana_cost
+    a.mana -= mana_cost(a, move_a)
+    b.mana -= mana_cost(b, move_b)
+    for battler, move in ((a, move_a), (b, move_b)):
+        if move == Move.HEAL and battler.heal_potions is not None:
+            battler.heal_potions -= 1
 
     # 2. Set defending flags (Defend has priority)
     a.defending, b.defending = (move_a == Move.DEFEND), (move_b == Move.DEFEND)
