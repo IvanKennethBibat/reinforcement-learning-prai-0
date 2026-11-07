@@ -29,6 +29,7 @@ pygame-ce==2.5.8
 uv run python -m experiments.train_pool       # trains the NPC over seeds 0-2 (about 30 s)
 uv run python -m experiments.dda_simulation   # simulated players with and without DDA
 uv run python -m experiments.plot_results     # draws the figures into results/
+uv run python -m experiments.generalisation   # specialist vs mixed training (about 70 s)
 ```
 The NPC is trained against a random mix of the random, scripted and expert bots, so it doesn't overfit to one opponent. Q-tables are saved to `checkpoints/npc_seed{0,1,2}.npy`.
 
