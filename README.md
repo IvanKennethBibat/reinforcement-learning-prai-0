@@ -24,6 +24,18 @@ pygame-ce==2.5.8
 - matplotlib
     - Creates the visualisation of the RL model training pipeline: learning curves, baseline comparisons, Q-table heatmaps, and adaptation plots.
 
+## Training and DDA
+```bash
+uv run python -m experiments.train_pool       # trains the NPC over seeds 0-2 (about 30 s)
+uv run python -m experiments.dda_simulation   # simulated players with and without DDA
+uv run python -m experiments.plot_results     # draws the figures into results/
+```
+The NPC is trained against a random mix of the random, scripted and expert bots, so it doesn't overfit to one opponent. Q-tables are saved to `checkpoints/npc_seed{0,1,2}.npy`.
+
+**Opponent pool:** six tiers from one trained Q-table. Each tier makes a random legal move with probability 1.0, 0.8, 0.6, 0.4, 0.2 or 0.0, and otherwise plays greedily, so tier 0 is easiest. `results/tier_ladder.csv` shows player scores rising steadily as tiers get easier, on every seed and for every simulated player.
+
+**DDA** (`agents/dda.py`): the indicator is the player's score over their last 10 fights (win 1, draw 0.5, loss 0). The target is 40-60%. The mechanism moves one tier harder above the band and one easier below it, after at least 5 fights and at most once every 3 fights. `results/dda_summary.csv` and `results/dda_adaptation.png` compare DDA with a fixed middle tier for three simulated players, over 30 runs each.
+
 ## Playing
 ```bash
 uv run python -m ui
