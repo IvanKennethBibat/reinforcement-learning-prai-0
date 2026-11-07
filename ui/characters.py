@@ -68,6 +68,11 @@ def _reach(origin, angle, length):
     return (origin[0] + math.sin(angle) * length, origin[1] + math.cos(angle) * length)
 
 
+def _on_ground(point, ground_y):
+    """Stop a limb at the ground, leaving room for the paw drawn around it."""
+    return (point[0], min(point[1], ground_y - 3))
+
+
 def _blade_tip(origin, angle, length):
     """As _reach, but angle 0 is straight up."""
     return (origin[0] + math.sin(angle) * length, origin[1] - math.cos(angle) * length)
@@ -98,7 +103,7 @@ def draw_cat(pose: Pose, time: float = 0.0):
     shoulder = (chest[0] + 3, chest[1] + 3)
 
     # Tail: three bending segments, curling up behind the body.
-    base = (hip[0] - 9, hip[1] + 8)
+    base = (hip[0] - 9, min(hip[1] + 8, root_y - 3))
     bend = -0.9 + pose.weapon + swish * 0.12
     mid = _blade_tip(base, bend, 13)
     upper = _blade_tip(mid, bend + 0.45, 12)
@@ -114,24 +119,26 @@ def draw_cat(pose: Pose, time: float = 0.0):
 
     # Far foreleg.
     far_shoulder = (shoulder[0] - 4, shoulder[1])
-    elbow = _reach(far_shoulder, pose.off_arm, 11)
-    paw = _reach(elbow, pose.off_arm + 0.1, 10)
+    elbow = _on_ground(_reach(far_shoulder, pose.off_arm, 11), root_y)
+    paw = _on_ground(_reach(elbow, pose.off_arm + 0.1, 10), root_y)
     _limb(surf, far_shoulder, elbow, 6, FUR[0])
     _limb(surf, elbow, paw, 5, FUR[0])
 
     # Haunch and body.
-    pygame.draw.ellipse(surf, FUR[0], (hip[0] - 13, hip[1] - 11, 25, 24))
+    # The haunch flattens against the ground as the body drops, never through it.
+    floor = root_y - 1
+    pygame.draw.ellipse(surf, FUR[0], (hip[0] - 13, hip[1] - 11, 25, min(24, floor - hip[1] + 11)))
     pygame.draw.polygon(surf, FUR[0], [
         (hip[0] - 9, hip[1] - 8), (chest[0] - 7, chest[1] - 4), (chest[0] + 8, chest[1] - 2),
-        (chest[0] + 8, chest[1] + 11), (hip[0] + 9, hip[1] + 11),
+        (chest[0] + 8, min(chest[1] + 11, floor)), (hip[0] + 9, min(hip[1] + 11, floor)),
     ])
     pygame.draw.line(surf, FUR[1], (hip[0] - 7, hip[1] - 9), (chest[0] - 6, chest[1] - 3), 2)
     pygame.draw.arc(surf, FUR[2], (hip[0] - 11, hip[1] - 9, 20, 18), 1.0, 2.6)
     pygame.draw.rect(surf, FUR[1], (hip[0] - 4, root_y - 3, 13, 3))
 
     # Near foreleg.
-    elbow = _reach(shoulder, pose.arm, 11)
-    paw = _reach(elbow, pose.arm + 0.1, 11)
+    elbow = _on_ground(_reach(shoulder, pose.arm, 11), root_y)
+    paw = _on_ground(_reach(elbow, pose.arm + 0.1, 11), root_y)
     _limb(surf, shoulder, elbow, 7, FUR[0], FUR[1])
     _limb(surf, elbow, paw, 6, FUR[0], FUR[1])
     pygame.draw.circle(surf, FUR[1], paw, 3)

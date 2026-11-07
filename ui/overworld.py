@@ -20,6 +20,7 @@ import numpy as np
 import pygame
 
 from ui.arena import BAYER, dither_pick
+from ui.bouncer import Bouncer
 from ui.encounters import ENCOUNTERS
 from ui.font import draw_text
 from ui.palette import (
@@ -27,7 +28,9 @@ from ui.palette import (
     GRASS, INK, LEAVES, MOSS_INK, PETALS, PLASTER, ROOF, SKY, STEEL, STONE, TRUNK, WATER,
     WHITE, WOOD,
 )
-from ui.props import CHIMNEY_FROM_RIGHT, COTTAGE_RISE, EAVE, make_cottage, prop_images
+from ui.props import (
+    CHIMNEY_FROM_RIGHT, COTTAGE_RISE, EAVE, FIGURE_PAD, figure_canvas, make_cottage, prop_images,
+)
 from ui.sheep import FEET_Y, Sheep
 from ui.sprites import ASSETS, load_sheet
 
@@ -44,6 +47,7 @@ SIT_DELAY = 4.0       # how long the cat stands before it sits down
 SIT_TAIL = (0, 0, 1, 1, 0, 0, -1, -1)
 SIT_BLINK = 4
 GLOW_RADIUS = 30
+FIGURE_SIZE = (20, 26)
 SMOKE_PUFFS = 7
 SMOKE_LIFE = 4.5      # seconds for a puff to rise and fade
 SMOKE_RISE = 40
@@ -624,41 +628,41 @@ def _outline(surf):
 
 def draw_walker(facing, step):
     """The cat on the map. Facing is 'down', 'up' or 'side' (side looks right)."""
-    surf = pygame.Surface((20, 26), pygame.SRCALPHA)
+    canvas, surf = figure_canvas(FIGURE_SIZE)
     CAT_VIEWS[facing](surf, step)
-    return _outline(surf)
+    return _outline(canvas)
 
 
 def draw_idle(facing, frame):
     """The cat standing still: the tail swishes, the head nods, and it blinks once."""
-    surf = pygame.Surface((20, 26), pygame.SRCALPHA)
+    canvas, surf = figure_canvas(FIGURE_SIZE)
     CAT_VIEWS[facing](
         surf, 0,
         tail=IDLE_TAIL[frame], nod=IDLE_NOD[frame], blink=frame == IDLE_BLINK,
     )
-    return _outline(surf)
+    return _outline(canvas)
 
 
 def draw_sit(facing, frame):
     """The cat sitting: a slow tail flick and an unhurried blink."""
-    surf = pygame.Surface((20, 26), pygame.SRCALPHA)
+    canvas, surf = figure_canvas(FIGURE_SIZE)
     CAT_SIT_VIEWS[facing](surf, tail=SIT_TAIL[frame], blink=frame == SIT_BLINK)
-    return _outline(surf)
+    return _outline(canvas)
 
 
 def draw_sit_down(facing, frame):
     """The two steps from standing to sitting: hips dip, then settle."""
-    surf = pygame.Surface((20, 26), pygame.SRCALPHA)
+    canvas, surf = figure_canvas(FIGURE_SIZE)
     if frame == 0:
         CAT_VIEWS[facing](surf, 0, nod=1)
     else:
         CAT_SIT_VIEWS[facing](surf, nod=2)
-    return _outline(surf)
+    return _outline(canvas)
 
 
 def draw_map_slime(body, squash, crown=False):
     """A slime on the map, bouncing between two heights."""
-    surf = pygame.Surface((20, 26), pygame.SRCALPHA)
+    canvas, surf = figure_canvas(FIGURE_SIZE)
     top = 12 + squash
     pygame.draw.ellipse(surf, body[0], (2 - squash, top, 16 + squash * 2, 25 - top + 6))
     pygame.draw.ellipse(surf, body[2], (3 - squash, top + 1, 14 + squash * 2, 25 - top + 4))
@@ -669,7 +673,7 @@ def draw_map_slime(body, squash, crown=False):
     pygame.draw.rect(surf, INK, (12, top + 5, 2, 3))
     if crown:
         pygame.draw.polygon(surf, GOLD, [(6, top + 1), (6, top - 5), (8, top - 2), (10, top - 6), (12, top - 2), (14, top - 5), (14, top + 1)])
-    return _outline(surf)
+    return _outline(canvas)
 
 
 class Overworld:
@@ -679,7 +683,8 @@ class Overworld:
         self.size = self.map.get_size()
         tiles = find_tiles("S123B")
         self.start = tile_center(tiles["S"])
-        self.foes = {key: tile_center(tiles[key]) for key in ENCOUNTERS}
+        self.bouncers = {key: Bouncer(tile_center(tiles[key]), ord(key)) for key in ENCOUNTERS}
+        self.foes = {key: bouncer.pos for key, bouncer in self.bouncers.items()}
         self.gate_tiles = {
             key: [(x, y) for y, row in enumerate(LEVEL) for x, char in enumerate(row) if char == key]
             for key in GATES
@@ -730,6 +735,10 @@ class Overworld:
         self.idle_time = 0.0 if any(move) and self.alert is None else self.idle_time + dt
         for sheep in self.sheep:
             sheep.update(dt, self.pos, self._blocked)
+        for key in self.foes:
+            if key not in self.defeated and self.alert is None:
+                self.bouncers[key].update(dt, self._blocked)
+                self.foes[key] = self.bouncers[key].pos
         if self.alert is not None:
             self.alert_time += dt
             return self.alert if self.alert_time >= ALERT_TIME else None
@@ -808,7 +817,7 @@ class Overworld:
         image = sheep.frame()
         if sheep.flip and sheep.facing == "side":
             image = pygame.transform.flip(image, True, False)
-        surf.blit(image, (x - 12, y - FEET_Y - sheep.lift))
+        surf.blit(image, (x - 12 - FIGURE_PAD, y - FEET_Y - FIGURE_PAD - sheep.lift))
 
     def _draw_smoke(self, surf, camera):
         for index, (x, y) in enumerate(chimney_spots()):
@@ -823,12 +832,12 @@ class Overworld:
         _, left, top, image = prop
         surf.blit(image, (left - camera[0], top - camera[1]))
 
-    def _draw_figure(self, surf, image, center, camera):
+    def _draw_figure(self, surf, image, center, camera, lift=0):
         x, y = int(center[0]) - camera[0], int(center[1]) - camera[1]
         shadow = pygame.Surface((16, 6), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow, (*INK, 150), shadow.get_rect())
         surf.blit(shadow, (x - 8, y))
-        surf.blit(image, (x - 10, y - 22))
+        surf.blit(image, (x - 10 - FIGURE_PAD, y - 22 - FIGURE_PAD - lift))
 
     def draw(self, surf):
         camera = self._camera()
@@ -846,14 +855,16 @@ class Overworld:
             if isinstance(key, Sheep):
                 self._draw_sheep(surf, key, camera)
                 continue
+            lift = 0
             if key is None:
                 image = self._cat_frame()
                 if self.flip:
                     image = pygame.transform.flip(image, True, False)
             else:
-                frames = load_sheet(f"{ENCOUNTERS[key].sprite}_walk").frames["down"]
-                image = frames[int(self.time * 3) % len(frames)]
-            self._draw_figure(surf, image, spot, camera)
+                bouncer = self.bouncers[key]
+                image = load_sheet(f"{ENCOUNTERS[key].sprite}_walk").frames["down"][bouncer.frame]
+                lift = bouncer.lift
+            self._draw_figure(surf, image, spot, camera, lift)
         for prop in props:
             self._draw_prop(surf, prop, camera)
         self._draw_smoke(surf, camera)

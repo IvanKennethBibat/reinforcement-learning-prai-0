@@ -14,6 +14,9 @@ from ui.palette import (
 )
 
 
+FIGURE_PAD = 2
+
+
 def _outline(surf, color):
     silhouette = pygame.mask.from_surface(surf).to_surface(setcolor=(*color, 255), unsetcolor=(0, 0, 0, 0))
     framed = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
@@ -21,6 +24,16 @@ def _outline(surf, color):
         framed.blit(silhouette, offset)
     framed.blit(surf, (0, 0))
     return framed
+
+
+def figure_canvas(size):
+    """A canvas with a clear border, so outlines never get cut off at its edge.
+
+    Returns (canvas, area): draw on `area` using coordinates inside `size`, then
+    outline and show `canvas`, which is FIGURE_PAD bigger on every side.
+    """
+    canvas = pygame.Surface((size[0] + FIGURE_PAD * 2, size[1] + FIGURE_PAD * 2), pygame.SRCALPHA)
+    return canvas, canvas.subsurface((FIGURE_PAD, FIGURE_PAD, *size))
 
 
 def make_pine(rng, ramp, width, height):

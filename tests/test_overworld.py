@@ -9,11 +9,12 @@ import pytest
 
 from battle.engine import Outcome
 from ui.arena import HEIGHT, WIDTH
+from ui.bouncer import LEASH, REST, SQUASHED, STRETCHED
 from ui.encounters import ENCOUNTERS
 from ui.game import Game
 from ui.sprites import load_sheet
 from ui.overworld import (
-    GATES, LEVEL, SIT_DELAY, TILE, VIEW, _cottage_prop, chimney_spots, find_cottages,
+    GATES, LEVEL, SIT_DELAY, TILE, TRIGGER_RADIUS, VIEW, _cottage_prop, chimney_spots, find_cottages,
 )
 from ui.overworld import Overworld, find_tiles, level_problems, reachable
 
@@ -202,6 +203,65 @@ def test_smoke_rises_from_each_chimney_and_stays_on_top():
     world.time += 1.3
     world.draw(after)
     assert pygame.image.tobytes(before, "RGB") != pygame.image.tobytes(after, "RGB")
+
+
+def run_slimes(world, seconds=120):
+    world.pos = [-999.0, -999.0]
+    for _ in range(int(seconds / STEP)):
+        for key, bouncer in world.bouncers.items():
+            bouncer.update(STEP, world._blocked)
+            yield key, bouncer
+
+
+def test_slimes_bounce_away_from_home_but_stay_on_a_short_leash():
+    world = Overworld()
+    moved = set()
+    for key, bouncer in run_slimes(world):
+        assert not world._blocked(*bouncer.pos)
+        assert math.dist(bouncer.pos, bouncer.home) <= LEASH
+        if bouncer.pos != list(bouncer.home):
+            moved.add(key)
+    assert moved == set(ENCOUNTERS)
+
+
+def test_a_hop_rises_and_shows_each_frame():
+    bouncer = Overworld().bouncers["1"]
+    frames, lifts = set(), set()
+    for _ in range(int(20 / STEP)):
+        bouncer.update(STEP, lambda x, y: False)
+        frames.add(bouncer.frame)
+        lifts.add(bouncer.lift)
+    assert frames == {REST, SQUASHED, STRETCHED}
+    assert max(lifts) >= 6 and min(lifts) == 0
+
+
+def test_a_slime_can_never_reach_the_start():
+    world = Overworld()
+    for spot in (bouncer.home for bouncer in world.bouncers.values()):
+        assert math.dist(spot, world.start) > LEASH + TRIGGER_RADIUS
+
+
+def test_slimes_hold_still_during_an_alert_and_after_defeat():
+    world = Overworld()
+    world.defeated.add("2")
+    resting_at = list(world.foes["2"])
+    world.pos = list(world.foes["1"])
+    world.update(STEP, (0, 0))
+    frozen = list(world.foes["1"])
+    assert world.alert == "1"
+    for _ in range(10):
+        world.update(STEP, (0, 0))
+    assert world.foes["1"] == frozen and world.foes["2"] == resting_at
+
+
+def test_a_moving_slime_still_starts_a_fight():
+    world = Overworld()
+    for _ in range(int(10 / STEP)):
+        world.bouncers["1"].update(STEP, world._blocked)
+    world.foes["1"] = world.bouncers["1"].pos
+    world.pos = list(world.foes["1"])
+    world.update(STEP, (0, 0))
+    assert world.alert == "1"
 
 
 def test_proximity_starts_a_fight_after_the_alert():
