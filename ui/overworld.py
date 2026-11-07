@@ -36,7 +36,7 @@ from ui.sprites import ASSETS, load_sheet
 
 TILE = 16
 VIEW = (320, 180)
-SPEED = 72
+SPEED = 60  # exactly one pixel per step, so scrolling never stutters
 TRIGGER_RADIUS = 30
 ALERT_TIME = 0.55
 IDLE_DELAY = 0.35     # how long the cat stands still before its idle loop starts
@@ -693,6 +693,7 @@ class Overworld:
             Sheep(tile_center((x, y)), y * 1000 + x)
             for y, row in enumerate(LEVEL) for x, char in enumerate(row) if char == "e"
         ]
+        self.chimneys = chimney_spots()
         self.defeated = set()
         self.pos = list(self.start)
         self.checkpoint = self.start
@@ -820,7 +821,7 @@ class Overworld:
         surf.blit(image, (x - 12 - FIGURE_PAD, y - FEET_Y - FIGURE_PAD - sheep.lift))
 
     def _draw_smoke(self, surf, camera):
-        for index, (x, y) in enumerate(chimney_spots()):
+        for index, (x, y) in enumerate(self.chimneys):
             for puff in range(SMOKE_PUFFS):
                 k = (self.time / SMOKE_LIFE + puff / SMOKE_PUFFS + index * 0.13) % 1
                 drift = math.sin(k * 5 + puff * 2 + index) * (1 + k * 5) + k * 7

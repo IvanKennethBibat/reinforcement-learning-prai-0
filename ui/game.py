@@ -6,11 +6,12 @@ import pygame
 
 from battle.engine import Outcome
 from ui import hud
-from ui.arena import BAYER, HEIGHT, WIDTH
+from ui.arena import BAYER, HEIGHT, WIDTH, Arena
 from ui.battle_screen import BattleScreen
 from ui.encounters import ENCOUNTERS
 from ui.overworld import Overworld
 from ui.palette import GOLD, INK
+from ui.sprites import ASSETS, load_sheet
 
 WIPE_TIME = 0.35
 
@@ -18,17 +19,31 @@ WIPE_TIME = 0.35
 @cache
 def _wipe_mask(level):
     """A full-screen ink pattern covering `level` of the 16 dither cells."""
+    cell = pygame.Surface((4, 4), pygame.SRCALPHA)
+    for y in range(4):
+        for x in range(4):
+            if BAYER[y][x] < level:
+                cell.set_at((x, y), (*INK, 255))
     mask = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    for y in range(HEIGHT):
-        for x in range(WIDTH):
-            if BAYER[y % 4][x % 4] < level:
-                mask.set_at((x, y), (*INK, 255))
+    for y in range(0, HEIGHT, 4):
+        for x in range(0, WIDTH, 4):
+            mask.blit(cell, (x, y))
     return mask
+
+
+def _prepare():
+    """Do the slow first-time work now, so nothing hitches during play."""
+    Arena()
+    for path in ASSETS.glob("*.png"):
+        load_sheet(path.stem)
+    for level in range(17):
+        _wipe_mask(level)
 
 
 class Game:
     def __init__(self, seed=None):
         self.rng = np.random.default_rng(seed)
+        _prepare()
         self.new_game()
 
     def new_game(self):
