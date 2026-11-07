@@ -36,6 +36,10 @@ The NPC is trained against a random mix of the random, scripted and expert bots,
 
 **DDA** (`agents/dda.py`): the indicator is the player's score over their last 10 fights (win 1, draw 0.5, loss 0). The target is 40-60%. The mechanism moves one tier harder above the band and one easier below it, after at least 5 fights and at most once every 3 fights. `results/dda_summary.csv` and `results/dda_adaptation.png` compare DDA with a fixed middle tier for three simulated players, over 30 runs each.
 
+**In the game:** every slime is played by the seed 0 agent at the tier DDA picks, and the boss plays one tier harder. One DDA director follows the player across the whole session. After each fight, press **R** to rematch, so a player can fill the 10-fight window. Every fight counts towards DDA, rematches included. Without `checkpoints/npc_seed0.npy`, the slimes fall back to the scripted bots.
+
+**Interpretability:** press **F1** in game for a debug overlay. In battle, it shows the agent's state, its Q-value for each legal move, the move it picked and whether that move was greedy or a deliberate random one, plus the DDA tier and score. On the map, it shows the DDA tier and score. `results/q_policy_map.png` maps the learned greedy move across HP and mana situations, averaged over the states the agent actually visited (about two thirds of the table).
+
 ## Playing
 ```bash
 uv run python -m ui

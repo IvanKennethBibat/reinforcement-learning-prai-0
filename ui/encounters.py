@@ -66,6 +66,6 @@ ENCOUNTERS = {
     "1": Encounter("MOSS SLIME", random_bot, MOSS_LINES, body=MOSS_SLIME, shot="spores"),
     "2": Encounter("TIDE SLIME", scripted_bot, TIDE_LINES, body=TIDE_SLIME, shot="water"),
     "3": Encounter("EMBER SLIME", expert_bot, EMBER_LINES, body=EMBER_SLIME, shot="lava"),
-    # Stand-in until a boss agent is trained.
+    # In the game every foe is played by the trained agent; these bots are the fallback.
     "B": Encounter("VESPER", expert_bot, VESPER_LINES, body=VESPER_SLIME, shot="royal", is_boss=True),
 }

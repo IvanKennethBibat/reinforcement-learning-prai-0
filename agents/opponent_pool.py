@@ -9,7 +9,7 @@ varies by opponent and by seed.
 import numpy as np
 
 from battle.engine import Move, legal_moves
-from battle.env import encode_state
+from battle.state import encode_state
 
 # Chance of a random move at each tier, from easiest to hardest.
 TIER_EPSILONS = (1.0, 0.8, 0.6, 0.4, 0.2, 0.0)
@@ -29,10 +29,14 @@ class OpponentPool:
 
     def act(self, tier, state, mask, rng):
         """The tier's choice from the legal moves in `mask`."""
+        return self.decide(tier, state, mask, rng)[0]
+
+    def decide(self, tier, state, mask, rng):
+        """As act(), but also says whether the move was a deliberate random one."""
         legal = np.flatnonzero(mask)
         if rng.random() < self.epsilons[tier]:
-            return int(rng.choice(legal))
-        return int(legal[np.argmax(self.q[state][legal])])
+            return int(rng.choice(legal)), True
+        return int(legal[np.argmax(self.q[state][legal])]), False
 
     def q_values(self, state):
         return self.q[state]
@@ -52,12 +56,17 @@ class TierPolicy:
         self.pool, self.tier = pool, tier
         self.opp_last = None
         self.last_state = None
+        self.last_mask = None
+        self.last_move = None
+        self.last_was_random = False
 
     def observe(self, opponent_move):
         self.opp_last = opponent_move
 
     def __call__(self, me, opp, rng):
         self.last_state = encode_state(me, opp, self.opp_last)
-        mask = np.zeros(len(Move), dtype=np.int8)
-        mask[legal_moves(me)] = 1
-        return Move(self.pool.act(self.tier, self.last_state, mask, rng))
+        self.last_mask = np.zeros(len(Move), dtype=np.int8)
+        self.last_mask[legal_moves(me)] = 1
+        move, self.last_was_random = self.pool.decide(self.tier, self.last_state, self.last_mask, rng)
+        self.last_move = Move(move)
+        return self.last_move

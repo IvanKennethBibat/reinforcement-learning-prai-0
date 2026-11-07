@@ -24,7 +24,9 @@ async def run():
 
 asyncio.run(run())
 loaded = {name.split(".")[0] for name in sys.modules}
-print("HEAVY", sorted(loaded & {"gymnasium", "matplotlib", "agents"}))
+print("HEAVY", sorted(loaded & {"gymnasium", "matplotlib"}))
+from ui.game import load_pool
+print("POOL", load_pool() is not None)
 """
 
 
@@ -38,6 +40,8 @@ def test_web_build_leaves_out_desktop_tools_and_runs_on_its_own(tmp_path):
     result = subprocess.run([sys.executable, "-c", RUN_ONE_FRAME_LOOP], cwd=app, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert "HEAVY []" in result.stdout
+    assert "POOL True" in result.stdout, "the web build plays the trained agent"
+    assert not (app / "agents" / "training.py").exists()
 
 
 def test_game_code_parses_on_the_python_the_browser_runs():

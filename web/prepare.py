@@ -10,6 +10,7 @@ import shutil
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "web" / "app"
 DESKTOP_ONLY = ("editor.py", "bake_sprites.py")
+GAME_AGENTS = ("__init__.py", "dda.py", "opponent_pool.py")  # training code stays behind
 
 MAIN = '''# /// script
 # dependencies = [
@@ -31,6 +32,11 @@ def prepare(app=APP):
     skip = shutil.ignore_patterns("__pycache__", *DESKTOP_ONLY)
     shutil.copytree(ROOT / "ui", app / "ui", ignore=skip)
     shutil.copytree(ROOT / "battle", app / "battle", ignore=shutil.ignore_patterns("__pycache__", "env.py"))
+    (app / "agents").mkdir()
+    for name in GAME_AGENTS:
+        shutil.copy(ROOT / "agents" / name, app / "agents" / name)
+    (app / "checkpoints").mkdir()
+    shutil.copy(ROOT / "checkpoints" / "npc_seed0.npy", app / "checkpoints")
     (app / "main.py").write_text(MAIN)
     return app
 
