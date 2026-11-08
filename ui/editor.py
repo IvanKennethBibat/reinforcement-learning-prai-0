@@ -24,7 +24,7 @@ TILE_NAMES = {
     "w": "WATER", "=": "PLANK BRIDGE", "#": "WALL", "R": "ROOF", "D": "DOOR",
     "W": "LIT WINDOW", "T": "TREE", "b": "BUSH", "r": "MOSSY ROCK",
     "c": "PILLAR", "o": "WELL", "l": "LANTERN", "H": "HALL GATE",
-    "p": "PICKET FENCE", "g": "VEG PATCH", "v": "FLOWER BED",
+    "p": "LATTICE FENCE", "g": "VEG PATCH", "v": "FLOWER BED",
     "e": "SHEEP", "S": "START", "1": "MOSS SLIME", "2": "TIDE SLIME", "3": "EMBER SLIME", "B": "VESPER",
 }
 UNIQUE = "S123B"   # exactly one of each: placing one moves it

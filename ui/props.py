@@ -8,10 +8,7 @@ import random
 
 import pygame
 
-from ui.palette import (
-    BERRY, BRICK, DEEP_PINE, EMBER, GOLD, GRASS, LEAVES, MOSS_INK, PETALS, PINE, PLASTER,
-    ROCK, STEEL, STONE, TRUNK, WOOD,
-)
+from ui.palette import BERRY, DEEP_PINE, GRASS, MOSS_INK, PETALS, PINE, ROCK, TRUNK
 
 
 FIGURE_PAD = 2
@@ -37,41 +34,79 @@ def figure_canvas(size):
 
 
 def make_pine(rng, ramp, width, height):
-    """Stacked boughs that droop into jagged tips, lit from the upper left."""
-    surf = pygame.Surface((width, height), pygame.SRCALPHA)
-    cx = width // 2
-    trunk_top = height - 9
-    pygame.draw.rect(surf, TRUNK[0], (cx - 2, trunk_top, 5, 8))
-    pygame.draw.rect(surf, TRUNK[1], (cx - 2, trunk_top, 2, 8))
+    """A tall spruce: layered boughs that sweep out and droop into needle tips.
 
-    tiers = max(4, height // 10)
+    `ramp` runs from shadow to highlight (five steps). Light comes from the upper
+    left, and each tier sits in the shadow of the one above it.
+    """
+    surf = pygame.Surface((width, height), pygame.SRCALPHA)
+    cx = width / 2
+    base = height - 2
+    canopy_top, canopy_bottom = 1, height - 11
+    span = canopy_bottom - canopy_top
+
+    # Trunk with a little root flare, bark lit on the left.
+    for y in range(canopy_bottom - 6, base + 1):
+        flare = 1 if y >= base - 1 else 0
+        for x in range(int(cx) - 2 - flare, int(cx) + 3 + flare):
+            side = x - cx
+            surf.set_at((x, y), TRUNK[2] if side < -1 else TRUNK[1] if side < 1 else TRUNK[0])
+        if rng.random() < 0.4:
+            surf.set_at((int(cx) + rng.randint(-1, 1), y), TRUNK[0])
+
+    # Tier boundaries: short tiers at the top, longer towards the bottom.
+    tiers = max(5, span // 7)
+    edges = [canopy_top + round(span * (i / tiers) ** 0.85) for i in range(tiers + 1)]
     for tier in range(tiers):
-        k = tier / (tiers - 1)                       # 0 at the bottom, 1 at the top
-        bottom = int(trunk_top + 1 - k * (height - 20))
-        top = bottom - int(15 - k * 4)
-        half = (width / 2 - 2) * (1 - k * 0.82)
-        for y in range(max(0, top), bottom):
-            t = (y - top) / max(1, bottom - top)
-            reach = half * t ** 0.85 + 1
-            left, right = int(cx - reach - rng.randint(0, 1)), int(cx + reach + rng.randint(0, 1))
-            for x in range(left, right + 1):
-                if 0 <= x < width:
-                    side = (x - cx) / max(1.0, reach)
-                    color = ramp[0] if side > 0.3 else ramp[1] if side > -0.35 else ramp[2]
-                    surf.set_at((x, y), color)
-        # Drooping tips along the lower edge of the bough.
-        for x in range(int(cx - half), int(cx + half) + 1, 3):
-            drop = rng.randint(1, 3)
-            side = (x - cx) / max(1.0, half)
-            color = ramp[0] if side > 0.2 else ramp[1]
-            if 0 <= x < width:
-                pygame.draw.line(surf, color, (x, bottom - 1), (x, min(height - 1, bottom + drop)))
-        # Clusters of light on the sunny side.
-        for _ in range(int(half) + 2):
-            x = int(cx - rng.uniform(0.15, 1.0) * half)
-            y = bottom - rng.randint(1, 4)
-            if 0 <= x < width - 1 and 0 <= y < height and surf.get_at((x, y)).a:
-                pygame.draw.line(surf, ramp[3], (x, y), (x + rng.randint(0, 2), y))
+        top, bottom = edges[tier], edges[tier + 1]
+        jag_left, jag_right = rng.uniform(-1.5, 2.5), rng.uniform(-1.5, 2.5)
+        spread = rng.uniform(0.82, 1.12)   # some boughs reach further than others
+        lean = rng.choice((-1, 0, 0, 1))   # and sit a pixel off centre
+        for y in range(top, bottom + 1):
+            t = (y - canopy_top) / span
+            f = (y - top) / max(1, bottom - top)        # 0 at the tier's top, 1 at its lip
+            half = min(width / 2 - 2, (width / 2 - 2) * (0.1 + 0.9 * t ** 0.9) * (0.5 + 0.5 * f ** 1.4) * spread)
+            left = int(cx + lean - half - jag_left * f - rng.randint(0, 1))
+            right = int(cx + lean + half + jag_right * f + rng.randint(0, 1))
+            for x in range(max(0, left), min(width, right + 1)):
+                side = (x - cx) / max(1.0, half)
+                if f < 0.3 and tier:
+                    color = ramp[0] if side > -0.5 else ramp[1]   # shade under the bough above
+                elif side > 0.4:
+                    color = ramp[0] if rng.random() < 0.55 else ramp[1]
+                elif side > -0.3:
+                    color = ramp[1] if rng.random() < 0.7 else ramp[2]
+                else:
+                    color = ramp[2] if rng.random() < 0.75 else ramp[3]
+                surf.set_at((x, y), color)
+
+        # Needle tips hanging from the lip of the bough.
+        lip_half = min(width / 2 - 2, (width / 2 - 2) * (0.1 + 0.9 * ((bottom - canopy_top) / span) ** 0.9) * spread)
+        for x in range(int(cx + lean - lip_half), int(cx + lean + lip_half) + 1, 2):
+            if 0 <= x < width and rng.random() < 0.75:
+                side = (x - cx) / max(1.0, lip_half)
+                drop = rng.randint(1, 4 if abs(side) > 0.5 else 2)
+                color = ramp[2] if side < -0.2 else ramp[1] if side < 0.3 else ramp[0]
+                pygame.draw.line(surf, color, (x, bottom), (x, min(base, bottom + drop)))
+
+        # Bright needle strokes on the sunlit upper side of the bough.
+        for _ in range(int(lip_half * 0.9) + 1):
+            x = int(cx - rng.uniform(0.1, 0.95) * lip_half)
+            y = top + int((bottom - top) * rng.uniform(0.35, 0.9))
+            if 0 < x < width - 2 and surf.get_at((x, y)).a:
+                surf.set_at((x, y), ramp[3])
+                surf.set_at((x - 1, y + 1), ramp[3])
+                if rng.random() < 0.35:
+                    surf.set_at((x + 1, y - 1), ramp[4])
+    for y in range(canopy_top, canopy_top + 3):  # the leader at the very top
+        surf.set_at((int(cx), y), ramp[2])
+
+    # A tuft of grass and a couple of flowers at the foot.
+    for _ in range(9):
+        x = int(cx) + rng.randint(-6, 6)
+        pygame.draw.line(surf, rng.choice(GRASS[:3]), (x, base), (x + rng.randint(-1, 1), base - rng.randint(1, 3)))
+    for _ in range(2):
+        surf.set_at((int(cx) + rng.choice((-5, -4, 4, 5)), base - 1), rng.choice((BERRY[1], PETALS[0])))
     return _outline(surf, MOSS_INK)
 
 
@@ -110,164 +145,13 @@ def make_rock(rng, width=24, height=20):
     return _outline(surf, MOSS_INK)
 
 
-EAVE = 5          # how far the roof overhangs each wall
-WALL_HEIGHT = 30
-COTTAGE_RISE = 14  # how far a cottage stands above its footprint on the map
-CHIMNEY_FROM_RIGHT = 21  # the middle of the chimney, from the sprite's right edge
-
-
-def _draw_window(surf, x, y, shutter):
-    """A lit window with a cross frame, shutters and a box of flowers."""
-    pygame.draw.rect(surf, WOOD[0], (x - 1, y - 1, 12, 13))
-    pygame.draw.rect(surf, EMBER[2], (x, y, 10, 11))
-    pygame.draw.rect(surf, EMBER[3], (x, y, 5, 5))
-    pygame.draw.line(surf, WOOD[0], (x + 5, y), (x + 5, y + 10))
-    pygame.draw.line(surf, WOOD[0], (x, y + 5), (x + 9, y + 5))
-    for side in (x - 5, x + 11):
-        pygame.draw.rect(surf, shutter[0], (side, y - 1, 4, 13))
-        pygame.draw.rect(surf, shutter[1], (side + 1, y, 2, 11))
-        for line in (y + 3, y + 7):
-            pygame.draw.line(surf, shutter[0], (side + 1, line), (side + 2, line))
-    pygame.draw.rect(surf, WOOD[0], (x - 2, y + 12, 14, 4))
-    pygame.draw.line(surf, WOOD[1], (x - 1, y + 13), (x + 10, y + 13))
-    for i in range(7):
-        fx = x - 1 + i * 2
-        surf.set_at((fx, y + 11), GRASS[0])
-        surf.set_at((fx, y + 10), PETALS[i % 3])
-
-
-def _draw_door(surf, x, bottom):
-    """A plank door in a stone arch, with a step in front."""
-    top = bottom - 22
-    pygame.draw.rect(surf, STONE[1], (x - 2, top + 2, 18, 20))
-    pygame.draw.circle(surf, STONE[1], (x + 7, top + 4), 9)
-    pygame.draw.rect(surf, WOOD[0], (x, top + 3, 14, 19))
-    pygame.draw.circle(surf, WOOD[0], (x + 7, top + 4), 7)
-    pygame.draw.rect(surf, WOOD[1], (x + 1, top + 4, 12, 18))
-    for line in (x + 4, x + 7, x + 10):
-        pygame.draw.line(surf, WOOD[0], (line, top + 2), (line, bottom - 1))
-    pygame.draw.line(surf, STEEL[1], (x + 1, top + 9), (x + 12, top + 9))
-    pygame.draw.line(surf, STEEL[1], (x + 1, top + 16), (x + 12, top + 16))
-    pygame.draw.rect(surf, GOLD, (x + 11, top + 12, 2, 2))
-    pygame.draw.rect(surf, STONE[3], (x - 3, bottom - 2, 20, 2))
-    pygame.draw.line(surf, STONE[4], (x - 3, bottom - 2), (x + 16, bottom - 2))
-
-
-def _draw_timbers(surf, left, right, top, bottom):
-    pygame.draw.rect(surf, WOOD[0], (left, top, right - left, 3))
-    pygame.draw.line(surf, WOOD[1], (left, top), (right - 1, top))
-    pygame.draw.rect(surf, WOOD[0], (left, bottom - 2, right - left, 2))
-    for x in (left, right - 3):
-        pygame.draw.rect(surf, WOOD[0], (x, top, 3, bottom - top))
-        pygame.draw.line(surf, WOOD[1], (x, top), (x, bottom - 1))
-
-
-def _draw_foundation(surf, rng, left, right, bottom):
-    pygame.draw.rect(surf, STONE[1], (left, bottom - 7, right - left, 7))
-    for row, y in enumerate((bottom - 7, bottom - 4)):
-        x = left + row * 3
-        while x < right - 2:
-            width = rng.randint(4, 8)
-            color = rng.choice(STONE[2:4])
-            pygame.draw.rect(surf, color, (x, y, min(width, right - x) - 1, 2))
-            x += width
-
-
-def _draw_roof(surf, rng, width, roof_top, eave_y, colors):
-    """A pitched roof of staggered shingles, some a touch lighter or darker."""
-    inset = 12
-    points = [(0, eave_y), (width, eave_y), (width - inset, roof_top), (inset, roof_top)]
-    pygame.draw.polygon(surf, colors[1], points)
-    for row, y in enumerate(range(roof_top, eave_y, 4)):
-        k = (y - roof_top) / (eave_y - roof_top)
-        left = int(inset * (1 - k))
-        right = width - left
-        pygame.draw.line(surf, colors[0], (left, y + 3), (right - 1, y + 3))
-        for x in range(left + (row % 2) * 3, right, 6):
-            pygame.draw.line(surf, colors[0], (x, y), (x, y + 3))
-            roll = rng.random()
-            if roll < 0.28:
-                pygame.draw.line(surf, colors[2], (x + 1, y), (min(x + 4, right - 1), y))
-            elif roll < 0.38:
-                pygame.draw.rect(surf, colors[0], (x + 1, y, 3, 3))
-    pygame.draw.rect(surf, colors[0], (inset - 1, roof_top - 2, width - inset * 2 + 2, 3))
-    pygame.draw.line(surf, colors[2], (inset, roof_top - 2), (width - inset, roof_top - 2))
-    pygame.draw.line(surf, colors[2], (0, eave_y - 1), (inset, roof_top))
-    pygame.draw.rect(surf, colors[0], (0, eave_y, width, 2))
-
-
-def _draw_chimney(surf, x, roof_top):
-    bottom = roof_top + 12
-    pygame.draw.rect(surf, BRICK[1], (x, 2, 10, bottom - 2))
-    for row, y in enumerate(range(3, bottom, 3)):
-        pygame.draw.line(surf, BRICK[0], (x, y), (x + 9, y))
-        for bx in range(x + (row % 2) * 2, x + 10, 4):
-            surf.set_at((bx, y + 1), BRICK[0])
-    pygame.draw.line(surf, BRICK[2], (x, 2), (x, bottom - 1))
-    pygame.draw.rect(surf, STONE[2], (x - 1, 0, 12, 3))
-    pygame.draw.line(surf, STONE[4], (x - 1, 0), (x + 10, 0))
-
-
-def _draw_dormer(surf, x, y, colors):
-    """A small gabled window poking out of the roof."""
-    pygame.draw.rect(surf, PLASTER[1], (x, y + 5, 14, 10))
-    pygame.draw.rect(surf, WOOD[0], (x + 3, y + 7, 8, 7))
-    pygame.draw.rect(surf, EMBER[2], (x + 4, y + 8, 6, 5))
-    pygame.draw.line(surf, WOOD[0], (x + 7, y + 8), (x + 7, y + 12))
-    pygame.draw.polygon(surf, colors[1], [(x - 3, y + 7), (x + 7, y - 2), (x + 17, y + 7)])
-    pygame.draw.line(surf, colors[2], (x - 3, y + 7), (x + 7, y - 2))
-    pygame.draw.line(surf, colors[0], (x + 7, y - 2), (x + 17, y + 7))
-    pygame.draw.line(surf, colors[0], (x - 3, y + 7), (x + 17, y + 7))
-
-
-def _draw_ivy(surf, rng, x, bottom, height):
-    for _ in range(height * 2):
-        y = bottom - int(rng.random() ** 1.6 * height)
-        leaf_x = x + rng.randint(-3, 4)
-        surf.set_at((leaf_x, y), rng.choice(GRASS[:3]))
-        surf.set_at((leaf_x + 1, y), LEAVES[1])
-
-
-def make_cottage(seed, width, height, door_x, window_xs, colors):
-    """A whole cottage for a footprint `width` by `height` pixels.
-
-    `door_x` and `window_xs` are the left edges of those tiles on the front wall,
-    measured from the footprint's left edge. `colors` is one of COTTAGE_ROOFS.
-    """
-    rng = random.Random(seed)
-    total = width + EAVE * 2
-    tall = height + COTTAGE_RISE
-    surf = pygame.Surface((total, tall), pygame.SRCALPHA)
-
-    wall_top = tall - WALL_HEIGHT
-    left, right = EAVE, EAVE + width
-    roof_top = 10
-
-    _draw_chimney(surf, total - CHIMNEY_FROM_RIGHT - 5, roof_top)
-    pygame.draw.rect(surf, PLASTER[1], (left, wall_top, width, WALL_HEIGHT))
-    for _ in range(width):
-        surf.set_at((rng.randrange(left, right), rng.randrange(wall_top, tall)), rng.choice((PLASTER[0], PLASTER[2])))
-    _draw_timbers(surf, left, right, wall_top, tall)
-    _draw_foundation(surf, rng, left, right, tall)
-    _draw_roof(surf, rng, total, roof_top, wall_top, colors)
-    pygame.draw.rect(surf, PLASTER[0], (left, wall_top + 2, width, 2))  # shade under the eave
-
-    for x in window_xs:
-        _draw_window(surf, left + x + 3, wall_top + 6, colors)
-    if door_x is not None:
-        _draw_door(surf, left + door_x + 1, tall)
-    _draw_dormer(surf, total // 2 - 7, roof_top + 5, colors)
-    _draw_ivy(surf, rng, left + 2, tall - 2, 24)
-    return _outline(surf, MOSS_INK)
-
-
 @cache
 def prop_images():
     rng = random.Random(17)
     return {
-        "small_pine": [make_pine(rng, PINE, rng.randint(26, 30), rng.randint(32, 38)) for _ in range(5)],
-        "pine": [make_pine(rng, PINE, rng.randint(32, 38), rng.randint(42, 50)) for _ in range(6)],
-        "deep_pine": [make_pine(rng, DEEP_PINE, rng.randint(34, 40), rng.randint(44, 54)) for _ in range(5)],
+        "small_pine": [make_pine(rng, PINE, rng.randint(24, 28), rng.randint(38, 44)) for _ in range(5)],
+        "pine": [make_pine(rng, PINE, rng.randint(28, 34), rng.randint(50, 60)) for _ in range(6)],
+        "deep_pine": [make_pine(rng, DEEP_PINE, rng.randint(30, 36), rng.randint(54, 64)) for _ in range(5)],
         "bush": [make_bush(rng) for _ in range(4)],
         "rock": [make_rock(rng) for _ in range(3)],
     }

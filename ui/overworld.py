@@ -8,7 +8,7 @@ which holds one character per 16px tile:
     c  pillar          w  water          =  plank bridge  o  well
     R  roof            D  door           W  lit window    l  lantern
     S  start           H  hall gate      1 2 3 B  foes
-    e  sheep           p  picket fence   g  veg patch     v  flower bed
+    e  sheep           p  lattice fence  g  veg patch     v  flower bed
 """
 from functools import cache
 import math
@@ -24,13 +24,12 @@ from ui.bouncer import Bouncer
 from ui.encounters import ENCOUNTERS
 from ui.font import draw_text
 from ui.palette import (
-    BERRY, BONE, CLOTH, COTTAGE_ROOFS, DANGER, DIRT, EAR, EMBER, FOREST_FLOOR, FUR, GOLD,
-    GRASS, INK, LEAVES, MOSS_INK, PETALS, PLASTER, ROOF, SKY, STEEL, STONE, TRUNK, WATER,
+    BERRY, BONE, CLOTH, COBBLE, DANGER, DIRT, EAR, EMBER, FOREST_FLOOR, FUR, GOLD, GRASS,
+    INK, LATTICE, LEAVES, MOSS_INK, PAVING, PETALS, ROOF, SKY, STEEL, STONE, TRUNK, WALL_TOP, WATER,
     WHITE, WOOD,
 )
-from ui.props import (
-    CHIMNEY_FROM_RIGHT, COTTAGE_RISE, EAVE, FIGURE_PAD, figure_canvas, make_cottage, prop_images,
-)
+from ui.buildings import load_building
+from ui.props import FIGURE_PAD, figure_canvas, prop_images
 from ui.sheep import FEET_Y, Sheep
 from ui.sprites import ASSETS, load_sheet
 
@@ -58,6 +57,9 @@ SOLID = set("#TbrcHwRDWolp")
 WALLS = "#RDW"
 GRASSY = ".brlepgv"
 MAX_FRAY = 10
+# What each block of roof tiles becomes, in map order (left to right, top to bottom).
+# Each name needs ui/assets/buildings/<name>.png and .json.
+VILLAGE = ("bakery", "bookstore", "coffee", "home")
 PLACED_PROPS = {"b": "bush", "r": "rock"}
 
 # Which foes must fall before each gate opens.
@@ -130,11 +132,10 @@ def _paint_ground(surf, char, x, y, rng):
         pygame.draw.rect(surf, CLOTH[1], (px, py, TILE, TILE))
         pygame.draw.line(surf, CLOTH[2], (px, py + 7), (px + TILE, py + 7))
         pygame.draw.line(surf, GOLD, (px + 7, py + 3), (px + 7, py + 3))
-    else:
-        pygame.draw.rect(surf, STONE[2], (px, py, TILE, TILE))
-        pygame.draw.line(surf, STONE[1], (px, py), (px + TILE, py))
-        pygame.draw.line(surf, STONE[1], (px + (8 if y % 2 else 0), py), (px + (8 if y % 2 else 0), py + TILE))
-        surf.set_at((px + rng.randrange(TILE), py + rng.randrange(TILE)), STONE[3])
+    else:  # stone floor: grass here, with cobbles laid over it by _lay_cobbles
+        pygame.draw.rect(surf, GRASS[1], (px, py, TILE, TILE))
+        for _ in range(3):
+            surf.set_at((px + rng.randrange(TILE), py + rng.randrange(TILE)), GRASS[0])
 
 
 def _paint_grass(surf, px, py, rng):
@@ -196,46 +197,148 @@ def _paint_window(surf, px, py):
     pygame.draw.line(surf, INK, (px + 5, py + 7), (px + 10, py + 7))
 
 
+def _is_wall(x, y):
+    return not (0 <= y < len(LEVEL) and 0 <= x < len(LEVEL[0])) or LEVEL[y][x] in WALLS
+
+
+def _moss(surf, rng, px, py, count, top_only=False):
+    """Little clumps of moss, mostly along the top edge of the stone."""
+    for _ in range(count):
+        x = px + rng.randrange(TILE - 2)
+        y = py + (rng.randrange(3) if top_only else rng.randrange(TILE - 2))
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (rng.choice((-1, 2)), 0)):
+            if rng.random() < 0.85:
+                surf.set_at((x + dx, y + dy), rng.choice((GRASS[0], LEAVES[1], LEAVES[2])))
+
+
 def _paint_wall(surf, x, y, rng):
+    """Weathered stone: the mossy top of a wall, or its face where it meets the ground."""
     px, py = x * TILE, y * TILE
-    below = LEVEL[y + 1][x] if y + 1 < len(LEVEL) else "#"
-    if below in WALLS:
-        pygame.draw.rect(surf, INK, (px, py, TILE, TILE))
-        surf.set_at((px + rng.randrange(TILE), py + rng.randrange(TILE)), SKY[1])
+    if _is_wall(x, y + 1):
+        # Looking down on top of the wall: big worn slabs with moss in the cracks.
+        pygame.draw.rect(surf, WALL_TOP[0], (px, py, TILE, TILE))
+        for row, top in enumerate(range(0, TILE, 8)):
+            for left in range(-4 * (row % 2), TILE, 8):
+                slab = pygame.Rect(px + max(0, left), py + top, min(TILE, left + 8) - max(0, left) - 1, 7)
+                if slab.width > 0:
+                    pygame.draw.rect(surf, WALL_TOP[1], slab)
+                    pygame.draw.line(surf, WALL_TOP[2], slab.topleft, (slab.right - 1, slab.top))
+        _moss(surf, rng, px, py, rng.randint(1, 3))
+        if not _is_wall(x, y - 1):
+            pygame.draw.line(surf, MOSS_INK, (px, py), (px + TILE - 1, py))
+        if not _is_wall(x - 1, y):
+            pygame.draw.line(surf, MOSS_INK, (px, py), (px, py + TILE - 1))
+        if not _is_wall(x + 1, y):
+            pygame.draw.line(surf, MOSS_INK, (px + TILE - 1, py), (px + TILE - 1, py + TILE - 1))
         return
-    pygame.draw.rect(surf, STONE[1], (px, py, TILE, TILE))
-    pygame.draw.line(surf, STONE[3], (px, py), (px + TILE, py))
-    for row, top in enumerate((5, 10)):
-        pygame.draw.line(surf, STONE[0], (px, py + top), (px + TILE, py + top))
-        pygame.draw.line(surf, STONE[0], (px + 4 + row * 7, py + top - 4), (px + 4 + row * 7, py + top))
-    pygame.draw.rect(surf, INK, (px, py + TILE - 2, TILE, 2))
+
+    # The face of the wall: courses of outlined blocks, moss dripping from the top.
+    pygame.draw.rect(surf, COBBLE[0], (px, py, TILE, TILE))
+    for row, top in enumerate(range(0, TILE - 2, 4)):
+        left = -rng.randint(0, 5) if row % 2 else 0
+        while left < TILE:
+            width = rng.randint(5, 8)
+            block = pygame.Rect(px + max(0, left), py + top, min(TILE, left + width) - max(0, left) - 1, 3)
+            if block.width > 0:
+                pygame.draw.rect(surf, rng.choice((COBBLE[1], COBBLE[2], COBBLE[2])), block)
+                pygame.draw.line(surf, COBBLE[3], block.topleft, (block.right - 1, block.top))
+            left += width
+    _moss(surf, rng, px, py, rng.randint(1, 3), top_only=True)
+    if rng.random() < 0.18:  # a trailing vine
+        vx = px + rng.randrange(2, TILE - 2)
+        for vy in range(py, py + rng.randint(6, 12)):
+            surf.set_at((vx + (vy // 3) % 2, vy), TRUNK[0])
+            if vy % 3 == 0:
+                surf.set_at((vx + 1 - (vy // 3) % 2 * 2, vy), LEAVES[2])
+    if not _is_wall(x, y - 1):
+        pygame.draw.line(surf, MOSS_INK, (px, py), (px + TILE - 1, py))
+    pygame.draw.rect(surf, MOSS_INK, (px, py + TILE - 2, TILE, 2))
 
 
 def _is_fence(x, y):
     return 0 <= y < len(LEVEL) and 0 <= x < len(LEVEL[0]) and LEVEL[y][x] == "p"
 
 
+FENCE_BOTTOM = 13           # the lattice's lower rail, from the top of the tile
+FENCE_POST = (5, 6)         # left edge and width of a centred post or rail, ink included
+
+
+def _fence_panel(surf, px, py, columns):
+    """The lattice face with its scalloped top, across the given tile columns."""
+    bottom = py + FENCE_BOTTOM
+    for i in columns:
+        top = py + 6 - round(3 * math.sin(math.pi * (i + 0.5) / TILE))
+        for j in range(top + 2, bottom):
+            u, v = i + j, i - j
+            if u % 5 in (0, 1) or v % 5 in (0, 1):
+                shade = LATTICE[2] if u % 5 == 0 and v % 5 not in (0, 1) else LATTICE[1]
+                surf.set_at((px + i, j), shade)
+        surf.set_at((px + i, top - 1), MOSS_INK)
+        surf.set_at((px + i, top), LATTICE[2])
+        surf.set_at((px + i, top + 1), LATTICE[1])
+        surf.set_at((px + i, bottom), LATTICE[1])
+        surf.set_at((px + i, bottom + 1), LATTICE[0])
+        surf.set_at((px + i, bottom + 2), MOSS_INK)
+
+
+def _fence_post(surf, left, py, width=5):
+    """A square post standing the full height of the fence, with a cap."""
+    bottom = py + FENCE_BOTTOM
+    pygame.draw.rect(surf, MOSS_INK, (left - 1, py + 1, width, bottom - py + 3))
+    pygame.draw.rect(surf, LATTICE[1], (left, py + 2, width - 2, bottom - py + 1))
+    pygame.draw.line(surf, LATTICE[2], (left, py + 2), (left, bottom))
+    pygame.draw.line(surf, LATTICE[0], (left + width - 3, py + 3), (left + width - 3, bottom + 1))
+    pygame.draw.line(surf, LATTICE[2], (left, py + 1), (left + width - 3, py + 1))
+
+
+def _fence_rail(surf, px, top, end):
+    """A fence seen edge on: a slim rail, as it runs up or down the screen."""
+    left, width = FENCE_POST
+    pygame.draw.rect(surf, MOSS_INK, (px + left, top, width, end - top + 1))
+    pygame.draw.rect(surf, LATTICE[1], (px + left + 1, top, width - 2, end - top + 1))
+    pygame.draw.line(surf, LATTICE[2], (px + left + 1, top), (px + left + 1, end))
+    for j in range(top + 2, end, 4):
+        pygame.draw.line(surf, LATTICE[0], (px + left + 2, j), (px + left + width - 2, j))
+
+
 def _paint_fence(surf, x, y):
-    """White pickets that join up with the fence tiles next to them."""
+    """A dark wood lattice fence that joins up with the fence tiles around it.
+
+    Runs left to right show the lattice face on, runs up and down are seen edge on,
+    and where the two meet a single post takes the corner so neither cuts into the other.
+    """
     px, py = x * TILE, y * TILE
     left, right = _is_fence(x - 1, y), _is_fence(x + 1, y)
     up, down = _is_fence(x, y - 1), _is_fence(x, y + 1)
-    if left or right or not (up or down):
-        start = px if left else px + 3
-        end = px + TILE - 1 if right else px + 12
-        for rail in (py + 6, py + 10):
-            pygame.draw.line(surf, PLASTER[0], (start, rail + 1), (end, rail + 1))
-            pygame.draw.line(surf, PLASTER[2], (start, rail), (end, rail))
-        for i in range(1 if left else 3, 16 if right else 13, 4):
-            pygame.draw.rect(surf, MOSS_INK, (px + i - 1, py + 2, 4, 12))
-            pygame.draw.rect(surf, PLASTER[1], (px + i, py + 3, 2, 10))
-            pygame.draw.line(surf, PLASTER[2], (px + i, py + 3), (px + i, py + 11))
-    if up or down:
-        top = py if up else py + 4
-        bottom = py + TILE - 1 if down else py + 12
-        pygame.draw.rect(surf, MOSS_INK, (px + 6, top, 4, bottom - top + 1))
-        pygame.draw.rect(surf, PLASTER[1], (px + 7, top, 2, bottom - top + 1))
-        pygame.draw.line(surf, PLASTER[2], (px + 7, top), (px + 7, bottom))
+    across, along = left or right, up or down
+    post_left = px + FENCE_POST[0] + 1
+
+    if along and not across:
+        top = py if up else py + 2
+        end = py + TILE - 1 if down else py + 14
+        _fence_rail(surf, px, top, end)
+        if not up or not down:  # a cap where the run ends
+            cap = top if not up else end - 2
+            pygame.draw.rect(surf, MOSS_INK, (px + 4, cap - 1, 8, 4))
+            pygame.draw.rect(surf, LATTICE[2], (px + 5, cap, 6, 2))
+        return
+
+    if not along:
+        _fence_panel(surf, px, py, range(TILE))
+        if not left:
+            _fence_post(surf, px, py)
+        if not right:
+            _fence_post(surf, px + TILE - 3, py)
+        return
+
+    # A corner, T or crossing: the rail behind, then the panel, then the post, then the rail in front.
+    if up:
+        _fence_rail(surf, px, py, py + 4)
+    columns = [i for i in range(TILE) if (left and i < post_left - px) or (right and i > post_left - px + 2)]
+    _fence_panel(surf, px, py, columns)
+    _fence_post(surf, post_left, py, width=FENCE_POST[1])  # as wide as the rail it meets
+    if down:
+        _fence_rail(surf, px, py + FENCE_BOTTOM + 3, py + TILE - 1)
 
 
 def _paint_veg_patch(surf, px, py, rng):
@@ -363,13 +466,200 @@ def _fray_edges(surf):
     forest = grown(tiles == "T")
     pixels[forest & (to_grass < 2 + wobble * 7)] = GRASS[1]
 
-    for chars, inset, spread in ((",SH", 3, 5), ("w", 1, 4), ("_", 1, 4)):
+    for chars, inset, spread in ((",SH", 3, 5), ("w", 1, 4)):
         region = grown(np.isin(tiles, list(chars)))
         edge = inset + wobble * spread
         pixels[region & (to_ground < edge)] = GRASS[1]
         if chars == ",SH":
             pixels[region & (to_ground >= edge) & (to_ground < edge + 1)] = DIRT[0]
             pixels[region & (to_ground >= edge + 1) & (speckle > 0.985)] = DIRT[2]
+    del pixels
+
+
+STONE_FLOOR = "_co"   # tiles with a cobbled floor; foes take the floor of the tile beside them
+COBBLE_FADE = 16      # pixels over which cobbles thin out towards the edge of a floor
+STRAY_REACH = 10      # how far loose cobbles scatter onto the grass beyond
+
+
+def _distance_to(mask, limit):
+    """For every pixel, how many steps to the nearest True pixel, capped at `limit`."""
+    distance = np.full(mask.shape, limit, np.int16)
+    near = mask.copy()
+    for step in range(limit):
+        distance[near & (distance == limit)] = step
+        grown = near.copy()
+        grown[1:] |= near[:-1]
+        grown[:-1] |= near[1:]
+        grown[:, 1:] |= near[:, :-1]
+        grown[:, :-1] |= near[:, 1:]
+        near = grown
+    return distance
+
+
+def _floor_tiles():
+    """Which tiles are cobbled, counting a foe as standing on the floor beside it."""
+    def ground(x, y):
+        char = LEVEL[y][x]
+        return LEVEL[y][min(x + 1, len(LEVEL[y]) - 1)] if char in "123B" else char
+    return np.array([[ground(x, y) in STONE_FLOOR for y in range(len(LEVEL))] for x in range(len(LEVEL[0]))])
+
+
+STONE_SPACING = 11    # rough width of one cobble, in pixels
+
+
+def _nearest_seeds(width, height, rng):
+    """Scatter one seed per cell of a jittered grid; each pixel finds its two nearest.
+
+    The pixels nearest each seed make one irregular stone (a Voronoi cell), and the gap
+    between the nearest and second-nearest distance says how close a pixel is to a seam.
+    """
+    cols, rows = width // STONE_SPACING + 2, height // STONE_SPACING + 2
+    jitter = np.array([[(rng.uniform(1, STONE_SPACING - 1), rng.uniform(1, STONE_SPACING - 1))
+                        for _ in range(rows)] for _ in range(cols)])
+    seeds_x = (np.arange(cols)[:, None] - 1) * STONE_SPACING + jitter[..., 0]
+    seeds_y = (np.arange(rows)[None, :] - 1) * STONE_SPACING + jitter[..., 1]
+    px, py = np.meshgrid(np.arange(width), np.arange(height), indexing="ij")
+    cell_x, cell_y = px // STONE_SPACING + 1, py // STONE_SPACING + 1
+    first = np.full(px.shape, 1e9)
+    second = np.full(px.shape, 1e9)
+    owner = np.zeros(px.shape + (2,), np.int32)
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            cx = np.clip(cell_x + dx, 0, cols - 1)
+            cy = np.clip(cell_y + dy, 0, rows - 1)
+            sx, sy = seeds_x[cx, cy], seeds_y[cx, cy]
+            dist = np.hypot((px - sx) * 0.85, py - sy)   # a little wider than tall
+            closer = dist < first
+            second = np.where(closer, first, np.minimum(second, dist))
+            first = np.where(closer, dist, first)
+            owner[closer] = np.stack([cx, cy], axis=-1)[closer]
+    return seeds_x, seeds_y, owner, second - first, px, py
+
+
+def _lay_cobbles(surf):
+    """Pave stone floors with irregular, mottled cobbles that break up into the grass.
+
+    Deep inside a floor the stones pack tight over dark grout. Towards the edge the
+    seams widen into grass with the odd flower, stones drop out, and a few loose ones
+    scatter onto the meadow beyond, so a floor fades out instead of stopping dead.
+    """
+    grown = lambda mask: np.repeat(np.repeat(mask, TILE, axis=0), TILE, axis=1)
+    tiles = np.array([list(row) for row in LEVEL]).T
+    floor = grown(_floor_tiles())
+    inside = _distance_to(~floor, COBBLE_FADE)          # how deep into the floor
+    outside = _distance_to(floor, STRAY_REACH)          # how far out onto the grass
+    grassy = grown(np.isin(tiles, list(GRASSY)))
+    allowed = floor | (grassy & (outside < STRAY_REACH))
+    width, height = surf.get_size()
+    rng = random.Random(77)
+    seeds_x, seeds_y, owner, seam, px, py = _nearest_seeds(width, height, rng)
+
+    # Decide which stones are laid: nearly all deep inside, fewer towards the edge.
+    cols, rows = seeds_x.shape
+    kept = np.zeros((cols, rows), bool)
+    tone = np.zeros((cols, rows))
+    for cx in range(cols):
+        for cy in range(rows):
+            sx, sy = int(seeds_x[cx, cy]), int(seeds_y[cx, cy])
+            if not (0 <= sx < width and 0 <= sy < height):
+                continue
+            if floor[sx, sy]:
+                chance = 0.35 + 0.65 * min(1.0, inside[sx, sy] / COBBLE_FADE) ** 1.5
+            elif grassy[sx, sy] and outside[sx, sy] < STRAY_REACH:
+                chance = 0.35 * (1 - outside[sx, sy] / STRAY_REACH)
+                # a loose stone needs open grass all round it
+                reach = STONE_SPACING // 2 + 1
+                if not all(0 <= sx + ox < width and 0 <= sy + oy < height and allowed[sx + ox, sy + oy]
+                           for ox, oy in ((-reach, 0), (reach, 0), (0, -reach), (0, reach))):
+                    continue
+            else:
+                continue
+            kept[cx, cy] = rng.random() < chance
+            tone[cx, cy] = rng.uniform(-0.12, 0.12)
+
+    ox, oy = owner[..., 0], owner[..., 1]
+    deep = floor & (inside >= 9 + _wobble(px, py) * 10)    # where the seams are dark grout
+    seam_width = np.where(deep, 0.8, 2.4 + 3.0 * (1 - np.minimum(inside, COBBLE_FADE) / COBBLE_FADE))
+    stone = kept[ox, oy] & allowed & (seam >= seam_width)
+
+    # Mottled face: lit from the top left, with chunky 2x2 speckle like weathered rock.
+    rel_x = (px - seeds_x[ox, oy]) / STONE_SPACING
+    rel_y = (py - seeds_y[ox, oy]) / STONE_SPACING
+    speckle = np.random.default_rng(3).uniform(-0.28, 0.28, (width // 2 + 1, height // 2 + 1))
+    light = 1.0 - 1.6 * np.hypot(rel_x + 0.12, rel_y + 0.15) + speckle[px // 2, py // 2] + tone[ox, oy]
+    rim = seam < seam_width + 1.4                          # the stone's outline
+    shade = np.digitize(light, (0.25, 0.55, 0.85))        # 0 dark .. 3 bright
+
+    pixels = pygame.surfarray.pixels3d(surf)
+    pixels[deep & ~stone] = PAVING[0]
+    for level in range(4):
+        pixels[stone & ~rim & (shade == level)] = PAVING[level + 1]
+    # Rims: bright on the lit top-left edges, dark everywhere else.
+    lit = stone & rim & (rel_x + rel_y < -0.25) & ~deep
+    pixels[stone & rim] = PAVING[0]
+    pixels[lit] = PAVING[3]
+    del pixels
+
+    # Moss creeping over the odd stone, and little flowers in the grassy seams.
+    for cx in range(cols):
+        for cy in range(rows):
+            if not kept[cx, cy] or rng.random() > 0.2:
+                continue
+            sx, sy = int(seeds_x[cx, cy]), int(seeds_y[cx, cy]) - 3
+            for _ in range(rng.randint(2, 4)):
+                x, y = sx + rng.randint(-3, 3), sy + rng.randint(-1, 1)
+                if 0 <= x < width and 0 <= y < height and stone[x, y]:
+                    surf.set_at((x, y), rng.choice((GRASS[2], GRASS[3], LEAVES[1])))
+    gaps = np.argwhere(allowed & ~stone & ~deep & (inside < COBBLE_FADE) & (seam < 1.4)
+                       & kept[ox, oy] & (inside > 0))
+    for index in rng.sample(range(len(gaps)), min(len(gaps), len(gaps) // 90)):
+        x, y = gaps[index]
+        petal = rng.choice((PETALS[0], PETALS[2], PETALS[2]))
+        for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+            surf.set_at((x + dx, y + dy), petal)
+        surf.set_at((x, y), PETALS[1])
+
+
+def _wobble(px, py):
+    """Smooth 0..1 noise that keeps the grout boundary from following the tile grid."""
+    return (np.sin(px / 7 + np.sin(py / 11) * 2) + np.sin(py / 6 + np.sin(px / 13) * 2) + 2) / 4
+
+
+BLADE_TILE = 64  # size of the repeating patch of grass blades
+
+
+@cache
+def _blade_patch():
+    """A seamless patch of grass blades: colours, and where a blade is drawn."""
+    rng = random.Random(5)
+    colors = np.zeros((BLADE_TILE, BLADE_TILE, 3), np.uint8)
+    drawn = np.zeros((BLADE_TILE, BLADE_TILE), bool)
+    for _ in range(BLADE_TILE * BLADE_TILE // 7):
+        x, y = rng.randrange(BLADE_TILE), rng.randrange(BLADE_TILE)
+        light = rng.random() < 0.3
+        lean = rng.choice((-1, 0, 0, 1))
+        height = rng.randint(2, 4)
+        for step in range(height):
+            px, py = (x + (lean if step == height - 1 else 0)) % BLADE_TILE, (y - step) % BLADE_TILE
+            if light:
+                color = GRASS[3] if step == height - 1 else GRASS[2]
+            else:
+                color = GRASS[2] if step == height - 1 and rng.random() < 0.35 else GRASS[0]
+            colors[px, py] = color
+            drawn[px, py] = True
+    return colors, drawn
+
+
+def _grow_grass(surf):
+    """Cover plain grass with blades, so the meadow has texture instead of a flat fill."""
+    width, height = surf.get_size()
+    colors, drawn = _blade_patch()
+    reps = (width // BLADE_TILE + 1, height // BLADE_TILE + 1)
+    colors = np.tile(colors, (*reps, 1))[:width, :height]
+    drawn = np.tile(drawn, reps)[:width, :height]
+    pixels = pygame.surfarray.pixels3d(surf)
+    plain = np.all(pixels == GRASS[1], axis=2)
+    pixels[plain & drawn] = colors[plain & drawn]
     del pixels
 
 
@@ -380,6 +670,13 @@ def build_map():
         for x, char in enumerate(row):
             paint_tile(surf, char, x, y)
     _fray_edges(surf)
+    _lay_cobbles(surf)
+    _grow_grass(surf)
+    # Pillars and wells stand on the cobbles, so draw them again on top.
+    for y, row in enumerate(LEVEL):
+        for x, char in enumerate(row):
+            if char in "co":
+                _paint_prop(surf, char, x, y, random.Random(y * 1000 + x))
     _paint_lantern_glow(surf)
     return surf
 
@@ -416,11 +713,12 @@ def find_cottages():
 
 
 def chimney_spots():
-    """Where smoke leaves each cottage: the top of its chimney, in map pixels."""
+    """Where smoke leaves each building with a chimney, in map pixels."""
     spots = []
-    for x, y, width, _, _ in find_cottages():
-        left = x * TILE - EAVE
-        spots.append((left + width * TILE + EAVE * 2 - CHIMNEY_FROM_RIGHT, y * TILE - COTTAGE_RISE))
+    for index, cottage in enumerate(find_cottages()):
+        (_, left, top, _), chimney = _building(*cottage, index=index)
+        if chimney is not None:
+            spots.append((left + chimney[0], top + chimney[1]))
     return spots
 
 
@@ -435,16 +733,19 @@ def _smoke_puff(radius, strength):
 
 
 def _cottage_prop(x, y, width, rows, wall, index=0):
-    door = wall.find("D")
-    door_x = door * TILE if door >= 0 else None
-    windows = [i * TILE for i, char in enumerate(wall) if char == "W"]
-    # Balance the front: add a window on the far side of the door when there's room.
-    if door >= 0 and width - door >= 3:
-        windows.append((door + 2) * TILE - 4)
-    roof = COTTAGE_ROOFS[index % len(COTTAGE_ROOFS)]
-    image = make_cottage(y * 1000 + x, width * TILE, rows * TILE, door_x, windows, roof)
+    return _building(x, y, width, rows, wall, index)[0]
+
+
+def _building(x, y, width, rows, wall, index=0):
+    """A building prop for one block of roof tiles, and its chimney top within the image.
+
+    Buildings take turns from VILLAGE in map order. Each one's art is an image in
+    ui/assets/buildings, placed so its anchor pixel sits on the block's bottom-left corner.
+    """
+    art = load_building(VILLAGE[index % len(VILLAGE)])
     ground_y = (y + rows) * TILE
-    return (ground_y, x * TILE - EAVE, ground_y - image.get_height(), image)
+    left, top = x * TILE - art.anchor[0], ground_y - art.anchor[1]
+    return (ground_y, left, top, art.image), art.chimney
 
 
 @cache
@@ -703,7 +1004,7 @@ class Overworld:
         self.time = 0.0
         self.alert = None     # key of the foe that has spotted the player
         self.alert_time = 0.0
-        self.message = "THREE SLIMES GUARD THE GREAT HALL."
+        self.message = "fight three slimes to enter the great hall..."
 
     def gate_open(self, gate):
         return GATES[gate] <= self.defeated
@@ -746,8 +1047,10 @@ class Overworld:
 
         dx, dy = move
         if dx or dy:
-            scale = SPEED * dt / math.hypot(dx, dy)
-            self._move(dx * scale, dy * scale)
+            # Whole pixels on each axis, even on diagonals: normalising to ~0.7 px
+            # per step makes the rounded position advance unevenly and judder.
+            step = SPEED * dt
+            self._move(dx * step, dy * step)
             self.walked += SPEED * dt
             if dy:
                 self.facing = "up" if dy < 0 else "down"
