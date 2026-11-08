@@ -24,13 +24,30 @@ pygame-ce==2.5.8
 - matplotlib
     - Creates the visualisation of the RL model training pipeline: learning curves, baseline comparisons, Q-table heatmaps, and adaptation plots.
 
+## Training and DDA
+```bash
+uv run python -m experiments.train_pool       # trains the NPC over seeds 0-2 (about 30 s)
+uv run python -m experiments.dda_simulation   # simulated players with and without DDA
+uv run python -m experiments.plot_results     # draws the figures into results/
+uv run python -m experiments.generalisation   # specialist vs mixed training (about 70 s)
+```
+The NPC is trained against a random mix of the random, scripted and expert bots, so it doesn't overfit to one opponent. Q-tables are saved to `checkpoints/npc_seed{0,1,2}.npy`.
+
+**Opponent pool:** six tiers from one trained Q-table. Each tier makes a random legal move with probability 1.0, 0.8, 0.6, 0.4, 0.2 or 0.0, and otherwise plays greedily, so tier 0 is easiest. `results/tier_ladder.csv` shows player scores rising steadily as tiers get easier, on every seed and for every simulated player.
+
+**DDA** (`agents/dda.py`): the indicator is the player's score over their last 10 fights (win 1, draw 0.5, loss 0). The target is 40-60%. The mechanism moves one tier harder above the band and one easier below it, after at least 5 fights and at most once every 3 fights. `results/dda_summary.csv` and `results/dda_adaptation.png` compare DDA with a fixed middle tier for three simulated players, over 30 runs each.
+
+**In the game:** every slime is played by the seed 0 agent at the tier DDA picks, and the boss plays one tier harder. One DDA director follows the player across the whole session. After each fight, press **R** to rematch, so a player can fill the 10-fight window. Every fight counts towards DDA, rematches included. Without `checkpoints/npc_seed0.npy`, the slimes fall back to the scripted bots.
+
+**Interpretability:** press **F1** in game for a debug overlay. In battle, it shows the agent's state, its Q-value for each legal move, the move it picked and whether that move was greedy or a deliberate random one, plus the DDA tier and score. On the map, it shows the DDA tier and score. `results/q_policy_map.png` maps the learned greedy move across HP and mana situations, averaged over the states the agent actually visited (about two thirds of the table).
+
 ## Playing
 ```bash
 uv run python -m ui
 ```
 Arrow keys or WASD to walk and to pick a move, Enter or Space to confirm. Number keys 1-5 and the mouse also work in battle. Esc quits.
 
-You play Pipkin, a small black cat clearing slimes out of a sunny valley. You start in the village, with roads out to the western meadow, the island court and the old ruins, and you can take them in any order. Back paths link the three areas, and two side areas are there to explore. Sheep graze and wander around the map, and hop away if you get too close. Foes start a fight when you get close, and beating all three slimes opens the Great Hall to the north, where Vesper waits. Every fight starts at full HP and mana, matching how the agents are trained. Foes and their policies are set in `ui/encounters.py`, and the level is a text map in `ui/assets/level.txt`.
+You play Pipkin, a small black cat clearing slimes out of a sunny valley. You start in the village, with roads out to the western meadow, the island court and the old ruins, and you can take them in any order. Back paths link the three areas, and two side areas are there to explore. Sheep graze and wander around the map, and hop away if you get too close. Slimes bounce around their own patch of the map. Foes start a fight when you get close, and beating all three slimes opens the Great Hall to the north, where Vesper waits. Every fight starts at full HP and mana, matching how the agents are trained. Foes and their policies are set in `ui/encounters.py`, and the level is a text map in `ui/assets/level.txt`.
 
 To change the level, run `uv run python -m ui.editor` and paint with the mouse. Left click paints, right click picks up a tile, the arrow keys or WASD scroll, Ctrl+S saves and Ctrl+Z undoes. It won't save a level that can't be finished, such as one with a slime walled off.
 

@@ -1,0 +1,7 @@
+npc,seed,vs_random,vs_scripted,vs_expert
+random_bot,-,0.495,0.066,0.014
+scripted_bot,-,0.938,0.493,0.058
+expert_bot,-,0.985,0.939,0.503
+q_learning,0,0.963,0.895,0.933
+q_learning,1,0.952,0.903,1.000
+q_learning,2,0.963,0.874,0.829

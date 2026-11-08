@@ -3,6 +3,7 @@
 The sky and the land are painted once. ``Arena`` slides clouds between the two
 and drifts petals over everything each frame.
 """
+from functools import cache
 import math
 import random
 
@@ -113,12 +114,14 @@ def _paint_meadow(surf):
             surf.set_at((x, y - 1), color)
 
 
+@cache
 def build_sky():
     surf = pygame.Surface((WIDTH, HEIGHT))
     _paint_sky(surf)
     return surf
 
 
+@cache
 def build_land():
     surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     _paint_mountains(surf)
@@ -127,19 +130,21 @@ def build_land():
     return surf
 
 
+@cache
+def build_clouds():
+    rng = random.Random(14)
+    return _cloud(rng, 150, 62), _cloud(rng, 96, 34), _cloud(rng, 70, 24)
+
+
 class Arena:
     def __init__(self):
         self.sky = build_sky()
         self.land = build_land()
         self.time = 0.0
         self.rng = random.Random(3)
-        cloud_rng = random.Random(14)
         # (image, x, y, speed): the big near clouds drift a little faster.
-        self.clouds = [
-            [_cloud(cloud_rng, 150, 62), 18.0, 2, 1.6],
-            [_cloud(cloud_rng, 96, 34), 196.0, 24, 1.0],
-            [_cloud(cloud_rng, 70, 24), 120.0, 44, 0.6],
-        ]
+        big, medium, small = build_clouds()
+        self.clouds = [[big, 18.0, 2, 1.6], [medium, 196.0, 24, 1.0], [small, 120.0, 44, 0.6]]
         self.petals = [
             [self.rng.uniform(0, WIDTH), self.rng.uniform(30, FLOOR_BOTTOM), self.rng.uniform(6, 16), self.rng.choice(PETALS)]
             for _ in range(22)

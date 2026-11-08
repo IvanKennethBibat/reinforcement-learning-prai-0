@@ -64,7 +64,7 @@ def main():
     for foe in ENCOUNTERS.values():
         bake_fighter(foe.sprite, foe.draw, SLIME_POSES, SLIME_SWAY)
         save_sheet(f"{foe.sprite}_walk", {
-            "down": [draw_map_slime(foe.body, squash, foe.is_boss) for squash in (0, 1)],
+            "down": [draw_map_slime(foe.body, squash, foe.is_boss) for squash in (0, 2, -2)],
         })
     pygame.quit()
 

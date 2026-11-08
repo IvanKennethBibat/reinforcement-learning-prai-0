@@ -2,46 +2,8 @@ import gymnasium as gym
 import numpy as np
 from battle.engine import Battler, Move, Outcome, legal_moves, resolve_turn, battle_over
 
-#These buckets shrink values into a few coarse levels, keeping the Q-table small for learning.
-def hp_bucket(hp:int) -> int:
-    if hp <= 25:
-        return 0
-    elif hp <= 50:
-        return 1
-    elif hp <= 75:
-        return 2
-    else:
-        return 3
-
-
-def mana_bucket(mana:int) -> int:
-    if mana <= 4:
-        return 0
-    elif mana <= 9:
-        return 1
-    elif mana <= 14:
-        return 2
-    else:
-        return 3
-
-
-# 2 x 4 HP buckets, 2 x 4 Mana Buckets, Opponent's last possible move (+ no move), 2 Honed status
-STATE_DIMS = (4, 4, 4, 4, 6, 2)
-N_STATES = int(np.prod(STATE_DIMS))   # 3072
-
-
-def encode_state(me: Battler, opp: Battler, opp_last: Move | None) -> int:
-    last = 0 if opp_last is None else int(opp_last) + 1
-
-    features = (
-        hp_bucket(me.hp),
-        mana_bucket(me.mana),
-        hp_bucket(opp.hp),
-        mana_bucket(opp.mana),
-        last,
-        int(me.honed)
-    )
-    return int(np.ravel_multi_index(features, STATE_DIMS))
+# The state encoding lives in battle.state; these names stay importable from here.
+from battle.state import N_STATES, STATE_DIMS, encode_state, hp_bucket, mana_bucket  # noqa: F401
 
 
 class BattleEnv(gym.Env):

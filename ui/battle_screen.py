@@ -14,7 +14,7 @@ from battle.bots import scripted_bot
 from battle.engine import (
     Battler, Move, Outcome, battle_over, legal_moves, resolve_turn,
 )
-from ui import hud
+from ui import debug, hud
 from ui.arena import HEIGHT, WIDTH, Arena
 from ui.characters import CANVAS, ROOT
 from ui.effects import SHOTS, Effects, draw_ward
@@ -113,9 +113,13 @@ class Fighter:
 
 
 class BattleScreen:
-    def __init__(self, opponent=scripted_bot, seed=None, encounter=ENCOUNTERS["B"], on_finish=None):
+    def __init__(self, opponent=scripted_bot, seed=None, encounter=ENCOUNTERS["B"], on_finish=None,
+                 on_rematch=None, director=None):
         self.opponent = opponent
         self.encounter = encounter
+        self.on_rematch = on_rematch
+        self.director = director
+        self.debug = False
         self.goo = encounter.body[1:]
         self.on_finish = on_finish
         self.arena = Arena()
@@ -150,6 +154,8 @@ class BattleScreen:
         foe_move = self.opponent(self.foe.battler, self.player.battler, self.rng)
         was_honed = self.player.battler.honed, self.foe.battler.honed
         results = resolve_turn(self.player.battler, self.foe.battler, move, foe_move, self.rng)
+        if hasattr(self.opponent, "observe"):  # the agent's state includes the player's last move
+            self.opponent.observe(move)
         self.turn += 1
         self.log = []
         self.script = self._play_turn(results, was_honed)
@@ -157,7 +163,9 @@ class BattleScreen:
 
     def handle_event(self, event):
         if self.outcome is not None:
-            if event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_r and self.on_rematch:
+                self.on_rematch(self.outcome)
+            elif event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 if self.on_finish:
                     self.on_finish(self.outcome)
                 else:
@@ -220,8 +228,13 @@ class BattleScreen:
                        self.player.battler)
         if self.outcome is not None:
             title, color = BANNERS[self.outcome]
-            subtitle = "PRESS ENTER TO CONTINUE" if self.on_finish else "PRESS ENTER TO FIGHT AGAIN"
+            if self.on_rematch:
+                subtitle = "ENTER: CONTINUE   R: REMATCH"
+            else:
+                subtitle = "PRESS ENTER TO CONTINUE" if self.on_finish else "PRESS ENTER TO FIGHT AGAIN"
             hud.draw_banner(surf, title, color, subtitle)
+        if self.debug:
+            debug.draw_battle_overlay(surf, self.opponent, self.director)
 
     # Turn playback. Order follows the engine: Defend, then Heal, then the rest.
 

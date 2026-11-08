@@ -1,12 +1,12 @@
 {
  "frame": [
-  20,
-  26
+  24,
+  30
  ],
  "rows": [
   "down"
  ],
- "columns": 2,
+ "columns": 3,
  "frame_time": 0.0,
  "tips": {}
 }

@@ -14,7 +14,7 @@ from ui.effects import SHOTS
 from ui.font import GLYPHS, wrap
 from ui.battle_screen import HEAL_POTIONS, PIPKIN_LINES
 from ui.hud import DETAIL_CHARS, MOVE_DETAILS, MOVE_NAMES, command_rect
-from ui.sprites import load_sheet
+from ui.sprites import ASSETS, load_sheet
 
 STEP = 1 / 30
 
@@ -167,6 +167,16 @@ def test_battle_sheets_have_every_pose_at_canvas_size(name):
 ])
 def test_walk_sheets_have_every_facing(name, rows):
     assert set(load_sheet(name).frames) == rows
+
+
+@pytest.mark.parametrize("path", sorted(ASSETS.glob("*.png")), ids=lambda path: path.stem)
+def test_no_sprite_touches_the_edge_of_its_frame(path):
+    for row, frames in load_sheet(path.stem).frames.items():
+        for column, frame in enumerate(frames):
+            bounds = frame.get_bounding_rect()
+            width, height = frame.get_size()
+            inside = bounds.left > 0 and bounds.top > 0 and bounds.right < width and bounds.bottom < height
+            assert inside, f"{path.stem} {row} {column}: {bounds} in {width}x{height}"
 
 
 def test_every_move_has_a_description_and_a_distinct_button():

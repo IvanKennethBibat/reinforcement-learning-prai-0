@@ -1,0 +1,5 @@
+trained_against,vs_random,vs_scripted,vs_expert,worst_case
+random only,0.974 ± 0.004,0.719 ± 0.165,0.447 ± 0.293,0.069
+scripted only,0.795 ± 0.015,0.932 ± 0.008,0.000 ± 0.000,0.000
+expert only,0.910 ± 0.012,0.501 ± 0.003,0.999 ± 0.001,0.496
+mixed,0.962 ± 0.003,0.891 ± 0.011,0.921 ± 0.070,0.830

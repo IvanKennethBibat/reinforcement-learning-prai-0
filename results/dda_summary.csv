@@ -1,0 +1,7 @@
+player,mode,runs,mean_score_after_20,share_in_band_after_20,mean_distance_from_0.5,final_tier_mean
+novice (random),dda,30,0.445,0.608,0.115,0.53
+novice (random),fixed,30,0.129,0.013,0.371,3.00
+intermediate (scripted),dda,30,0.508,0.517,0.131,3.80
+intermediate (scripted),fixed,30,0.625,0.416,0.161,3.00
+skilled (expert),dda,30,0.511,0.480,0.147,3.47
+skilled (expert),fixed,30,0.657,0.361,0.185,3.00

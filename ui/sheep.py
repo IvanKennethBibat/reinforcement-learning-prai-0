@@ -9,7 +9,7 @@ import random
 import pygame
 
 from ui.palette import INK, MOSS_INK, SHEEP_FACES, WOOL
-from ui.props import _outline
+from ui.props import _outline, figure_canvas
 from ui.sprites import load_sheet
 
 SIZE = (24, 24)
@@ -79,14 +79,14 @@ def _back(surf, frame, face):
 
 
 def draw_sheep(view, frame, face):
-    surf = pygame.Surface(SIZE, pygame.SRCALPHA)
+    canvas, surf = figure_canvas(SIZE)
     if view == "up":
         _back(surf, frame, face)
     elif view.endswith("side"):
         _side(surf, frame, face, view.startswith("graze"))
     else:
         _front(surf, frame, face, view.startswith("graze"))
-    return _outline(surf, MOSS_INK)
+    return _outline(canvas, MOSS_INK)
 
 
 class Sheep:
