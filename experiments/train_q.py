@@ -1,6 +1,4 @@
 import numpy as np
-from battle.env import BattleEnv
-from agents.q_learning import QLearningAgent
 from battle.engine import Outcome
 from battle.bots import scripted_bot
 from agents.training import train, evaluate
