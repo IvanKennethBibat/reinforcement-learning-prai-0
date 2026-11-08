@@ -4,8 +4,8 @@ This is a PyGame app to demonstrate a working reinforcement learning NPC in a tu
 Q-learning is used as the primary algorithm, then further experiments with other algorithms will be tried and tested.
 
 ## Requirements
-```text
 python v3.13.*
+```text
 
 gymnasium==1.4.0
 matplotlib==3.11.2
@@ -23,6 +23,7 @@ pygame-ce==2.5.8
     - Actively-maintained version of the original pygame library.
 - matplotlib
     - Creates the visualisation of the RL model training pipeline: learning curves, baseline comparisons, Q-table heatmaps, and adaptation plots.
+
 
 ## Training and DDA
 ```bash
