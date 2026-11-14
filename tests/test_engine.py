@@ -56,25 +56,12 @@ def test_battle_over_both_not_ko():
     assert battle_over(Battler(hp=5), Battler(hp=67), turn=5) == None
 
 
-def test_heal_potions_replace_the_mana_cost_and_run_out():
-    drinker = Battler(hp=50, mana=0, heal_potions=2)
-    foe = Battler()
-    rng = np.random.default_rng(0)
-
-    assert Move.HEAL in legal_moves(drinker)
-    resolve_turn(drinker, foe, Move.HEAL, Move.DEFEND, rng)
-    assert drinker.heal_potions == 1 and drinker.hp == 70 and drinker.mana == 0
-
-    resolve_turn(drinker, foe, Move.HEAL, Move.DEFEND, rng)
-    assert drinker.heal_potions == 0
-    assert Move.HEAL not in legal_moves(Battler(heal_potions=0))
-
-
-def test_battlers_without_potions_pay_mana_to_heal():
+def test_heal_costs_mana():
     healer = Battler(hp=50)
 
     resolve_turn(healer, Battler(), Move.HEAL, Move.DEFEND, np.random.default_rng(0))
-    assert healer.mana == 30 - MOVES[Move.HEAL].mana_cost and healer.heal_potions is None
+    assert healer.mana == 30 - MOVES[Move.HEAL].mana_cost
+    assert Move.HEAL not in legal_moves(Battler(mana=MOVES[Move.HEAL].mana_cost - 1))
 
 
 def test_a_ko_ends_the_fight():
@@ -85,9 +72,8 @@ def test_a_ko_ends_the_fight():
     assert battle_over(faller, foe, 1) == Outcome.LOSS
 
 
-def test_rl_setup_keeps_its_five_moves_and_mana_heal():
+def test_rl_setup_keeps_its_five_moves():
     env = BattleEnv(scripted_bot)
     env.reset(seed=0)
 
     assert len(Move) == 5 and env.action_space.n == 5 and N_STATES == 3072
-    assert env.npc.heal_potions is None and env.opp.heal_potions is None

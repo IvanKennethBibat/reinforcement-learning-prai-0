@@ -54,7 +54,7 @@ To change the level, run `uv run python -m ui.editor` and paint with the mouse. 
 
 Character art lives in sprite sheets in `ui/assets`, which you can edit in any pixel editor as long as the frame grid stays the same. `uv run python -m ui.bake_sprites` regenerates them from the drawing code and overwrites hand edits, so commit edited sheets first.
 
-Pipkin's moves are Attack, Swipe, Sharpen Claws, Block and Heal. Heal uses one of three potions per fight rather than mana. These are Pipkin's names for the engine's moves, and only Pipkin's Heal is limited, so the RL environment is unchanged.
+Pipkin's moves are Attack, Swipe, Sharpen Claws, Block and Heal. These are Pipkin's names for the engine's moves. Pipkin plays by exactly the same rules as the foes and the simulated players, so the training and DDA results describe the game a person plays.
 
 ## Moves
 Both players will have the same moveset and same base stats:
