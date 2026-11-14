@@ -1,6 +1,6 @@
 import pytest
 from battle.env import BattleEnv, hp_bucket, mana_bucket, encode_state, N_STATES
-from battle.engine import Battler, TURN_LIMIT
+from battle.engine import Battler, Move, Outcome, TURN_LIMIT
 from battle.bots import scripted_bot
 
 @pytest.mark.parametrize("hp, expected", [
@@ -41,3 +41,31 @@ def test_episode_terminates():
         if terminated:
             break
     assert terminated and info["outcome"] is not None
+
+def defend_bot(me, opp, rng):
+    return Move.DEFEND
+
+
+def test_heal_gives_positive_shaping():
+    env = BattleEnv(defend_bot)
+    env.reset(seed=0)
+    env.npc.hp = 50
+
+    _, r, terminated, _, _ = env.step(Move.HEAL)
+
+    # 50 vs 100 -> 70 vs 100: 0.95 * -0.30 - (-0.50). The old damage-only reward gave 0 here.
+    assert not terminated
+    assert r == pytest.approx(0.215)
+
+
+def test_timeout_while_ahead_is_penalised():
+    env = BattleEnv(defend_bot)
+    env.reset(seed=0)
+    env.npc.hp, env.opp.hp = 80, 50
+    env.turn = TURN_LIMIT - 1
+
+    _, r, terminated, _, info = env.step(Move.DEFEND)
+
+    # A timeout pays back the 0.30 lead, so running down the clock while ahead earns nothing overall.
+    assert terminated and info["outcome"] == Outcome.DRAW
+    assert r == pytest.approx(-0.30)
