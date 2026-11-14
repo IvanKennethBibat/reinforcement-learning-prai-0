@@ -1,11 +1,20 @@
 # Reinforcement-Learning-PRAI-0
 This is a PyGame app to demonstrate a working reinforcement learning NPC in a turn-based battle with Dynamic Difficulty Adjustment (DDA), similar to Final Fantasy 7, or Pokemon games.
 
-Q-learning is used as the primary algorithm, then further experiments with other algorithms will be tried and tested.
+The NPC is trained with tabular Q-learning. Difficulty is adjusted by choosing opponents from a pool of different strengths.
+
+## Installation
+With [uv](https://docs.astral.sh/uv/) (recommended), from the repository root:
+```bash
+uv sync                      # creates .venv with the exact versions in uv.lock
+uv run pytest -q             # optional: runs the test suite
+uv run python -m ui          # plays the game
+```
+Without uv, use Python 3.13 and `pip install -r requirements.txt`, then run the same commands without `uv run`. The trained Q-tables are committed in `checkpoints/`, so the game runs without retraining.
 
 ## Requirements
-```text
 python v3.13.*
+```text
 
 gymnasium==1.4.0
 matplotlib==3.11.2
@@ -24,14 +33,27 @@ pygame-ce==2.5.8
 - matplotlib
     - Creates the visualisation of the RL model training pipeline: learning curves, baseline comparisons, Q-table heatmaps, and adaptation plots.
 
+
+## RL formulation
+**State** (`battle/state.py`, 3072 states): the NPC's HP and mana, the opponent's HP and mana (each in 4 buckets), the opponent's last move (5 moves or none) and whether the NPC is honed. The game shows both fighters' HP and mana to the human player as well, so the NPC observes the same things a player does, and nothing hidden.
+
+**Actions:** the five moves below. Moves the NPC can't afford are masked out.
+
+**Reward** (`battle/env.py`): +1 for a win, -1 for a loss, 0 for a draw, plus potential-based shaping F = γΦ(s') − Φ(s), where Φ is the NPC's HP lead / 100 and Φ = 0 when the fight ends (Ng, Harada and Russell, 1999). The shaping rewards every turn that improves the NPC's position, heals included, and its discounted total over a fight is zero, so it speeds up learning without changing the best policy. An earlier reward paid 0.01 × damage traded each turn. It ignored heals, and in one of three seeds the agent learned to run down the 30-turn clock while ahead, because a timeout kept the damage it had already been paid for. `experiments/m3_ablation.py` compares the two rewards and two state changes (cost-aligned mana buckets and a late-fight clock flag), and `results/m3_ablation.json` has its results. Neither state change helped, so the state was kept as it is.
+
+**Algorithm and hyperparameters:** tabular Q-learning (`agents/q_learning.py`) with α = 0.1 and γ = 0.95. ε decays linearly from 1.0 to 0.05 over the first 80% of 40,000 training episodes. Every experiment uses seeds 0, 1 and 2 for training, and reports results across all three.
+
 ## Training and DDA
+Run these in order to regenerate every checkpoint and result:
 ```bash
 uv run python -m experiments.train_pool       # trains the NPC over seeds 0-2 (about 30 s)
 uv run python -m experiments.dda_simulation   # simulated players with and without DDA
 uv run python -m experiments.plot_results     # draws the figures into results/
 uv run python -m experiments.generalisation   # specialist vs mixed training (about 70 s)
+uv run python -m experiments.tier_rules       # compares epsilon, rank and tolerance tier rules
+uv run python -m experiments.m3_ablation pbrs # one reward/state variant; also base, mana5, clock, all
 ```
-The NPC is trained against a random mix of the random, scripted and expert bots, so it doesn't overfit to one opponent. Q-tables are saved to `checkpoints/npc_seed{0,1,2}.npy`.
+The NPC is trained against a random mix of the random, scripted and expert bots, so it doesn't overfit to one opponent. Q-tables are saved to `checkpoints/npc_seed{0,1,2}.npy`. All training and evaluation results come from simulated players (bots), not people.
 
 **Opponent pool:** six tiers from one trained Q-table. Each tier makes a random legal move with probability 1.0, 0.8, 0.6, 0.4, 0.2 or 0.0, and otherwise plays greedily, so tier 0 is easiest. `results/tier_ladder.csv` shows player scores rising steadily as tiers get easier, on every seed and for every simulated player.
 
@@ -53,7 +75,7 @@ To change the level, run `uv run python -m ui.editor` and paint with the mouse. 
 
 Character art lives in sprite sheets in `ui/assets`, which you can edit in any pixel editor as long as the frame grid stays the same. `uv run python -m ui.bake_sprites` regenerates them from the drawing code and overwrites hand edits, so commit edited sheets first.
 
-Pipkin's moves are Attack, Swipe, Sharpen Claws, Block and Heal. Heal uses one of three potions per fight rather than mana. These are Pipkin's names for the engine's moves, and only Pipkin's Heal is limited, so the RL environment is unchanged.
+Pipkin's moves are Attack, Swipe, Sharpen Claws, Block and Heal. These are Pipkin's names for the engine's moves. Pipkin plays by exactly the same rules as the foes and the simulated players, so the training and DDA results describe the game a person plays.
 
 ## Moves
 Both players will have the same moveset and same base stats:

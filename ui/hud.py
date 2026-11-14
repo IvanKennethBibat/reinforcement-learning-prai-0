@@ -1,7 +1,7 @@
 """Status plates and the command panel."""
 import pygame
 
-from battle.engine import MAX_HP, MAX_MANA, MOVES, TURN_LIMIT, Move, mana_cost
+from battle.engine import MAX_HP, MAX_MANA, MOVES, TURN_LIMIT, Move
 from ui.font import CHAR_WIDTH, draw_text, wrap
 from ui.palette import BONE, DANGER, EMBER, GOLD, INK, SKY, SPIRIT, STEEL, STONE, WHITE
 
@@ -26,7 +26,7 @@ MOVE_DETAILS = {
     Move.ATTACK: f"A quick pounce. Up to {MOVES[Move.ATTACK].max_damage} damage.",
     Move.FIREBOLT: f"Rake with your claws. Up to {MOVES[Move.FIREBOLT].max_damage} damage.",
     Move.HONE: "Your next Attack or Swipe deals double damage.",
-    Move.HEAL: f"Potion. Restore {MOVES[Move.HEAL].heal} HP before blows land.",
+    Move.HEAL: f"Restore {MOVES[Move.HEAL].heal} HP before blows land.",
     Move.DEFEND: f"Halve damage taken and gain {MOVES[Move.DEFEND].mana_gain} mana.",
 }
 
@@ -92,16 +92,14 @@ def draw_panel(surf, selected, legal, log, accepting, player):
         if chosen:
             pygame.draw.polygon(surf, EMBER[2], [(x - 6, y), (x - 6, y + 6), (x - 3, y + 3)])
         draw_text(surf, MOVE_NAMES[move], (x, y), color)
-        cost = mana_cost(player, move)
+        cost = MOVES[move].mana_cost
         if cost:
             draw_text(surf, str(cost), (rect.right - 2 - len(str(cost)) * CHAR_WIDTH, y), SPIRIT[1] if available and accepting else STONE[2])
-        if move == Move.HEAL:
-            draw_text(surf, f"x{player.heal_potions}", (rect.right - 2 - 2 * CHAR_WIDTH, y), GOLD if available and accepting else STONE[2])
 
     if accepting:
         lines = wrap(MOVE_DETAILS[selected], DETAIL_CHARS)
         if selected not in legal:
-            lines = ["None left." if selected == Move.HEAL else "Not enough mana."]
+            lines = ["Not enough mana."]
     else:
         lines = log[-3:]
     for i, line in enumerate(lines[:3]):

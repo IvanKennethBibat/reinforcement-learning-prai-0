@@ -51,7 +51,6 @@ def learning_curves():
         mean = runs.mean(axis=0)
         ax.fill_between(episodes, runs.min(axis=0), runs.max(axis=0), color=color, alpha=0.15, linewidth=0)
         ax.plot(episodes, mean, color=color, linewidth=2, label=f"vs {name} bot")
-        ax.text(episodes[-1] * 1.015, mean[-1], f"vs {name}", color=INK, fontsize=8, va="center")
         baseline = float(expert_row[f"vs_{name}"])
         ax.axhline(baseline, color=color, linewidth=1, alpha=0.55)
     ax.text(episodes[0], float(expert_row["vs_expert"]) - 0.06,

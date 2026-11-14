@@ -22,8 +22,6 @@ from ui.encounters import ENCOUNTERS
 from ui.palette import BONE, DANGER, EMBER, GOLD, INK, SPIRIT, WHITE
 from ui.sprites import load_sheet
 
-HEAL_POTIONS = 3
-
 # What the log says for Pipkin's moves. Each foe's lines are in ui/encounters.py.
 PIPKIN_LINES = {
     Move.ATTACK: "strikes!",
@@ -128,9 +126,11 @@ class BattleScreen:
         self.reset()
 
     def reset(self):
+        # Pipkin plays by the same rules as the foes and the simulated players in
+        # experiments/, so the DDA results describe the game people actually play.
         self.player = Fighter(
             "PIPKIN",
-            Battler(heal_potions=HEAL_POTIONS),
+            Battler(),
             load_sheet("cat"), (72, 130), 1, PIPKIN_LINES,
         )
         self.foe = Fighter(

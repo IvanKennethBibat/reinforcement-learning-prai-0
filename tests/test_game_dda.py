@@ -100,7 +100,7 @@ def test_overlay_explains_the_npcs_last_decision():
     picked = battle.opponent.last_move.name
     assert any(text.startswith(f"PICKED {picked}") for text in lines)
     assert sum(text.split()[0] in Move.__members__ for text in lines) == len(Move)
-    assert any("RANDOM MOVES" in text for text in lines)
+    assert any("RANDOM MOVES" in text for text in lines)  # the game's current tier rule
     highlighted = [text for text, on in battle_lines(battle.opponent, game.director) if on]
     assert highlighted and highlighted[0].startswith(picked)
 

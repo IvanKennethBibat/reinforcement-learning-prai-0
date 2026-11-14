@@ -27,6 +27,28 @@ def test_game_speed_is_the_same_on_any_screen(hertz, steps_in_a_second):
     assert sum(stepper.steps_for(1 / hertz) for _ in range(hertz)) == pytest.approx(steps_in_a_second, abs=1)
 
 
+def test_a_jittery_120hz_screen_steps_on_exactly_every_other_refresh():
+    stepper = FixedStep(120)
+    jitter = [1 / 120 + wobble for wobble in (0.0009, -0.0011, 0.0004, -0.0007, 0.001, -0.0005)] * 50
+    steps = [stepper.steps_for(frame) for frame in jitter]
+    assert steps == [0, 1] * 150 or steps == [1, 0] * 150
+
+
+def test_flips_that_return_unevenly_still_step_evenly():
+    # macOS often returns one flip at once and makes the next wait two refreshes.
+    stepper = FixedStep(120)
+    frames = ([1 / 120] * 7 + [0.0003, 2 / 120]) * 40
+    steps = [stepper.steps_for(frame) for frame in frames]
+    assert steps in ([0, 1] * 180, [1, 0] * 180)
+
+
+def test_the_refresh_rate_is_measured_when_the_screen_reports_it_wrong():
+    stepper = FixedStep(60)
+    for _ in range(60):
+        stepper.steps_for(1 / 144)
+    assert stepper.refresh == pytest.approx(1 / 144)
+
+
 def test_a_long_pause_does_not_fast_forward_the_game():
     assert FixedStep().steps_for(5.0) == round(MAX_FRAME / STEP)
 

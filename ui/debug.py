@@ -11,6 +11,7 @@ from ui.font import draw_text
 from ui.palette import BONE, GOLD, INK, SPIRIT, STONE
 
 LINE = 9
+RULE_LABELS = {"epsilon": "RANDOM MOVES", "rank": "SLIP CHANCE", "tolerance": "Q TOLERANCE"}
 BAR = 30
 
 
@@ -34,7 +35,7 @@ def battle_lines(policy, director):
         return rows
 
     pool, state = policy.pool, policy.last_state
-    rows.insert(1, (f"RANDOM MOVES {pool.epsilons[policy.tier]:.1f}", False))
+    rows.insert(1, (f"{RULE_LABELS[pool.rule]} {pool.levels[policy.tier]:.2f}", False))
     seen = decode_state(state)
     last = seen["opp_last"].name if seen["opp_last"] is not None else "NONE"
     rows.append((f"SLIME HP{seen['my_hp']} MP{seen['my_mana']} HONED {'Y' if seen['honed'] else 'N'}", False))
@@ -44,7 +45,7 @@ def battle_lines(policy, director):
         legal = bool(policy.last_mask[move])
         value = f"{q[move]:+.2f}" if legal else "  --"
         rows.append((f"{move.name:<9}{value}", move == policy.last_move))
-    rows.append((f"PICKED {policy.last_move.name} ({'RANDOM' if policy.last_was_random else 'GREEDY'})", False))
+    rows.append((f"PICKED {policy.last_move.name} ({'SLIP' if policy.last_deviated else 'BEST'})", False))
     return rows
 
 

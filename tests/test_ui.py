@@ -5,14 +5,14 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pygame
 import pytest
 
-from battle.engine import Move, Outcome, legal_moves
+from battle.engine import MOVES, Battler, Move, Outcome, legal_moves
 from ui.arena import HEIGHT, WIDTH
 from ui.battle_screen import BattleScreen
 from ui.characters import CANVAS, CAT_POSES, SLIME_POSES, draw_cat, draw_slime
 from ui.encounters import ENCOUNTERS
 from ui.effects import SHOTS
 from ui.font import GLYPHS, wrap
-from ui.battle_screen import HEAL_POTIONS, PIPKIN_LINES
+from ui.battle_screen import PIPKIN_LINES
 from ui.hud import DETAIL_CHARS, MOVE_DETAILS, MOVE_NAMES, command_rect
 from ui.sprites import ASSETS, load_sheet
 
@@ -57,16 +57,21 @@ def finish_turn(screen, surf):
         screen.draw(surf)
 
 
-def test_pipkin_runs_out_of_heals_but_keeps_full_mana():
+def test_pipkin_plays_by_the_same_rules_as_the_simulated_players():
+    screen = BattleScreen(seed=0)
+    assert screen.player.battler == Battler()
+
+
+def test_pipkin_pays_mana_to_heal_and_cannot_heal_without_it():
     screen = BattleScreen(seed=0)
     surf = pygame.Surface((WIDTH, HEIGHT))
-    for _ in range(HEAL_POTIONS):
-        screen.choose(Move.HEAL)
-        finish_turn(screen, surf)
-    assert screen.player.battler.heal_potions == 0 and screen.player.battler.mana == 30
-
     screen.choose(Move.HEAL)
-    assert screen.turn == HEAL_POTIONS and screen.script is None
+    finish_turn(screen, surf)
+    assert screen.player.battler.mana == 30 - MOVES[Move.HEAL].mana_cost
+
+    screen.player.battler.mana = MOVES[Move.HEAL].mana_cost - 1
+    screen.choose(Move.HEAL)
+    assert screen.turn == 1 and screen.script is None
 
 
 def test_pipkin_swipes_while_foes_keep_their_own_words():
