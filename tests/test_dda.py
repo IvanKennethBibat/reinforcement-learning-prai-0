@@ -79,3 +79,25 @@ def test_tier_policy_plays_like_a_bot_and_tracks_the_players_last_move():
     policy.observe(Move.FIREBOLT)
     policy(Battler(), Battler(), rng)
     assert policy.last_state != before
+
+
+@pytest.mark.parametrize("rule", ["epsilon", "rank", "tolerance"])
+def test_probabilities_match_how_often_each_tier_really_plays_each_move(rule):
+    rng = np.random.default_rng(1)
+    q = rng.normal(size=(N_STATES, len(Move)))
+    pool = OpponentPool(q, rule=rule)
+    mask = np.array([1, 1, 0, 1, 1], dtype=np.int8)
+    for tier in range(len(pool)):
+        chances = pool.probabilities(tier, 7, mask)
+        assert chances.sum() == pytest.approx(1.0) and chances[2] == 0
+        picks = np.bincount([pool.act(tier, 7, mask, rng) for _ in range(20000)], minlength=len(Move))
+        assert picks / picks.sum() == pytest.approx(chances, abs=0.015)
+
+
+def test_epsilon_tier_odds_follow_the_formula():
+    q = np.zeros((N_STATES, len(Move)))
+    q[0, Move.FIREBOLT] = 1.0
+    pool = OpponentPool(q)
+    chances = pool.probabilities(3, 0, np.ones(len(Move), dtype=np.int8))  # epsilon 0.4, 5 legal moves
+    assert chances[Move.FIREBOLT] == pytest.approx(0.6 + 0.4 / 5)
+    assert chances[Move.ATTACK] == pytest.approx(0.4 / 5)

@@ -199,6 +199,14 @@ class BattleScreen:
                         self.choose(move)
 
     @property
+    def randomness(self):
+        """How often this foe plays a random move instead of its best (its tier's epsilon), or None."""
+        pool = getattr(self.opponent, "pool", None)
+        if pool is None or pool.rule != "epsilon":
+            return None
+        return pool.levels[self.opponent.tier]
+
+    @property
     def showing_notice(self):
         return self.notice is not None and self.turn == 0 and self.notice_time < NOTICE_TIME
 
@@ -235,7 +243,7 @@ class BattleScreen:
         hud.draw_plate(surf, self.player, 3)
         hud.draw_plate(surf, self.foe, WIDTH - 115)
         hud.draw_turn(surf, self.turn + 1 if self.accepting else self.turn)
-        hud.draw_dda_badge(surf, self.director, WIDTH // 2, 16)
+        hud.draw_dda_badge(surf, self.director, WIDTH // 2, 16, self.randomness)
         hud.draw_panel(surf, self.selected, legal_moves(self.player.battler), self.log, self.accepting,
                        self.player.battler)
         if self.showing_notice:
@@ -248,7 +256,7 @@ class BattleScreen:
                 subtitle = "PRESS ENTER TO CONTINUE" if self.on_finish else "PRESS ENTER TO FIGHT AGAIN"
             hud.draw_banner(surf, title, color, subtitle)
         if self.debug:
-            debug.draw_battle_overlay(surf, self.opponent, self.director)
+            debug.draw_battle_overlay(surf, self.opponent, self.director, self.foe.battler, self.player.battler)
 
     # Turn playback. Order follows the engine: Defend, then Heal, then the rest.
 
