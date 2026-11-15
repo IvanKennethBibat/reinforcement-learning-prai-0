@@ -69,6 +69,33 @@ class OpponentPool:
             return choice, choice != best
         return best, False
 
+    def probabilities(self, tier, state, mask):
+        """The exact chance of each move under decide(), for the F1 overlay. Illegal moves get 0.
+
+        epsilon:   best move (1 - level) + level / n, every other legal move level / n
+        rank:      best move 1 - level, the rest share level by RANK_WEIGHTS
+        tolerance: equal chances for every move within `level` of the best Q-value
+        """
+        legal = np.flatnonzero(mask)
+        values = self.q[state][legal]
+        best = int(legal[np.argmax(values)])
+        level = self.levels[tier]
+        chances = np.zeros(len(mask))
+        if self.rule == "epsilon":
+            chances[legal] = level / len(legal)
+            chances[best] += 1 - level
+        elif self.rule == "rank" and len(legal) > 1:
+            lesser = legal[np.argsort(-values, kind="stable")][1:]
+            weights = np.array(RANK_WEIGHTS[:len(lesser)])
+            chances[lesser] = level * weights / weights.sum()
+            chances[best] = 1 - level
+        elif self.rule == "tolerance":
+            close = legal[values >= values.max() - level]
+            chances[close] = 1 / len(close)
+        else:
+            chances[best] = 1.0
+        return chances
+
     def q_values(self, state):
         return self.q[state]
 
@@ -93,6 +120,12 @@ class TierPolicy:
 
     def observe(self, opponent_move):
         self.opp_last = opponent_move
+
+    def upcoming(self, me, opp):
+        """The state and legal-move mask this tier will decide from next turn, without deciding."""
+        mask = np.zeros(len(Move), dtype=np.int8)
+        mask[legal_moves(me)] = 1
+        return encode_state(me, opp, self.opp_last), mask
 
     def __call__(self, me, opp, rng):
         self.last_state = encode_state(me, opp, self.opp_last)

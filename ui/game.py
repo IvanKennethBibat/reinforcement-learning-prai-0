@@ -162,8 +162,9 @@ class Game:
         else:
             self.world.draw(surf)
             if self.director is not None:
-                hud.draw_badge_panel(surf, pygame.Rect(WIDTH - 84, 3, 81, 24))
-                hud.draw_dda_badge(surf, self.director, WIDTH - 43, 7)
+                randomness = self.pool.levels[self.director.tier] if self.pool.rule == "epsilon" else None
+                hud.draw_badge_panel(surf, pygame.Rect(WIDTH - 84, 3, 81, 33 if randomness is not None else 24))
+                hud.draw_dda_badge(surf, self.director, WIDTH - 43, 7, randomness)
             if self.finished:
                 hud.draw_banner(surf, "HOORAY!", GOLD, "THE VALLEY IS SAFE. PRESS ENTER")
             if self.debug:

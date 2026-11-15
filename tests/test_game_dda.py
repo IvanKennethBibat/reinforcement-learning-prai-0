@@ -92,17 +92,50 @@ def test_f1_toggles_the_debug_overlay_in_battle_and_on_the_map():
     assert not game.debug and not battle.debug
 
 
-def test_overlay_explains_the_npcs_last_decision():
+def overlay(battle, game):
+    return battle_lines(battle.opponent, game.director, battle.foe.battler, battle.player.battler)
+
+
+def test_overlay_shows_the_odds_of_the_foes_next_move_before_the_first_turn():
+    game = Game(seed=0)
+    battle = start_fight(game)
+    rows = overlay(battle, game)
+    move_rows = [text for text, _ in rows if text.split()[0] in Move.__members__]
+    assert len(move_rows) == len(Move)
+    odds = [int(text.split()[-1].rstrip("%")) for text in move_rows if text.endswith("%")]
+    assert abs(sum(odds) - 100) <= len(odds), "the chances of the legal moves add up to 100%"
+    assert any(text.startswith("TIER 3/5 RANDOM 0.40") for text, _ in rows)
+    assert rows[-1][0] == "LAST: NONE YET"
+
+
+def test_overlay_highlights_the_best_move_and_reports_last_turn():
     game = Game(seed=0)
     battle = start_fight(game)
     battle.choose(Move.ATTACK)
-    lines = [text for text, _ in battle_lines(battle.opponent, game.director)]
-    picked = battle.opponent.last_move.name
-    assert any(text.startswith(f"PICKED {picked}") for text in lines)
-    assert sum(text.split()[0] in Move.__members__ for text in lines) == len(Move)
-    assert any("RANDOM MOVES" in text for text in lines)  # the game's current tier rule
-    highlighted = [text for text, on in battle_lines(battle.opponent, game.director) if on]
-    assert highlighted and highlighted[0].startswith(picked)
+    rows = overlay(battle, game)
+    state, mask = battle.opponent.upcoming(battle.foe.battler, battle.player.battler)
+    q = game.pool.q_values(state)
+    best = max((m for m in Move if mask[m]), key=lambda m: q[m])
+    highlighted = [text for text, on in rows if on]
+    assert len(highlighted) == 1 and highlighted[0].startswith(best.name)
+    expected = round((1 - 0.4 + 0.4 / mask.sum()) * 100)  # tier 3: epsilon 0.4
+    assert highlighted[0].endswith(f"{expected}%")
+    how = "RANDOM" if battle.opponent.last_deviated else "BEST"
+    assert rows[-1][0] == f"LAST: {battle.opponent.last_move.name} ({how})"
+
+
+def test_overlay_rows_fit_the_panel():
+    from ui.font import CHAR_WIDTH, GLYPHS
+    game = Game(seed=0)
+    for tier in range(len(game.pool)):
+        game.director.tier = tier
+        battle = start_fight(game)
+        battle.choose(Move.DEFEND)
+        for text, _ in overlay(battle, game):
+            assert set(text) <= set(GLYPHS)
+            room = 164 - 8 - (32 if text.split()[0] in Move.__members__ else 0)  # move rows also hold a bar
+            assert len(text) * CHAR_WIDTH <= room, text
+    assert len("LAST: FIREBOLT (RANDOM)") * CHAR_WIDTH <= 164 - 8, "the longest last-turn line"
 
 
 def test_dda_lines_show_tier_score_and_target():
@@ -144,6 +177,18 @@ def test_dda_badge_shows_the_win_rate_and_fits_between_the_plates():
     text = hud.dda_score_text(game.director)
     assert text == "WIN RATE 0.75" and set(text) <= set(GLYPHS)
     assert len(text) * CHAR_WIDTH <= 84, "the gap between the two status plates is 84 px"
+
+
+def test_dda_badge_says_how_often_foes_play_at_random():
+    from ui import hud
+    from ui.font import CHAR_WIDTH, GLYPHS
+    game = Game(seed=0)
+    battle = start_fight(game)
+    assert battle.randomness == 0.4 and hud.dda_random_text(battle.randomness) == "RANDOM 40%"
+    for level in game.pool.levels:
+        text = hud.dda_random_text(level)
+        assert set(text) <= set(GLYPHS) and len(text) * CHAR_WIDTH <= 84
+    assert hud.NOTICE_Y >= 16 + 18 + 7, "the notice sits below the badge's third line"
 
 
 def test_dda_badge_is_drawn_on_the_map_and_in_battle():
