@@ -22,6 +22,8 @@ from ui.encounters import ENCOUNTERS
 from ui.palette import BONE, DANGER, EMBER, GOLD, INK, SPIRIT, WHITE
 from ui.sprites import load_sheet
 
+NOTICE_TIME = 4.0  # seconds the difficulty notice stays up, unless the first move comes sooner
+
 # What the log says for Pipkin's moves. Each foe's lines are in ui/encounters.py.
 PIPKIN_LINES = {
     Move.ATTACK: "strikes!",
@@ -112,11 +114,15 @@ class Fighter:
 
 class BattleScreen:
     def __init__(self, opponent=scripted_bot, seed=None, encounter=ENCOUNTERS["B"], on_finish=None,
-                 on_rematch=None, director=None):
+                 on_rematch=None, director=None, notice=None):
         self.opponent = opponent
         self.encounter = encounter
         self.on_rematch = on_rematch
         self.director = director
+        # Shown at the start of the fight when DDA has just changed the difficulty, so the
+        # player can see the adaptation (and is told about it) without the F1 overlay.
+        self.notice = notice
+        self.notice_time = 0.0
         self.debug = False
         self.goo = encounter.body[1:]
         self.on_finish = on_finish
@@ -192,7 +198,12 @@ class BattleScreen:
                     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         self.choose(move)
 
+    @property
+    def showing_notice(self):
+        return self.notice is not None and self.turn == 0 and self.notice_time < NOTICE_TIME
+
     def update(self, dt):
+        self.notice_time += dt
         self.arena.update(dt)
         self.player.update(dt)
         self.foe.update(dt)
@@ -224,8 +235,11 @@ class BattleScreen:
         hud.draw_plate(surf, self.player, 3)
         hud.draw_plate(surf, self.foe, WIDTH - 115)
         hud.draw_turn(surf, self.turn + 1 if self.accepting else self.turn)
+        hud.draw_dda_badge(surf, self.director, WIDTH // 2, 16)
         hud.draw_panel(surf, self.selected, legal_moves(self.player.battler), self.log, self.accepting,
                        self.player.battler)
+        if self.showing_notice:
+            hud.draw_notice(surf, self.notice)
         if self.outcome is not None:
             title, color = BANNERS[self.outcome]
             if self.on_rematch:

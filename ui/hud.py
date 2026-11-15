@@ -106,6 +106,48 @@ def draw_panel(surf, selected, legal, log, accepting, player):
         draw_text(surf, line, (DETAIL_X, PANEL.y + 6 + i * 10), BONE)
 
 
+PIP, PIP_GAP = 5, 2
+
+
+def dda_score_text(director):
+    """The player's score over the DDA window (win 1, draw 0.5), e.g. 'WIN RATE 0.50'; '-' before any fights."""
+    return "WIN RATE -" if director.score is None else f"WIN RATE {director.score:.2f}"
+
+
+def draw_dda_badge(surf, director, center_x, y):
+    """Always-on DDA readout: one pip per tier (filled up to the current one) and the player's win rate.
+
+    The win rate is green inside the 40-60% target band and orange outside it.
+    """
+    if director is None:
+        return
+    label = "DDA "
+    width = len(label) * CHAR_WIDTH + director.tiers * (PIP + PIP_GAP) - PIP_GAP
+    x = center_x - width // 2
+    draw_text(surf, label, (x, y), BONE, shadow=INK)
+    for tier in range(director.tiers):
+        rect = pygame.Rect(x + len(label) * CHAR_WIDTH + tier * (PIP + PIP_GAP), y + 1, PIP, PIP)
+        pygame.draw.rect(surf, INK, rect.inflate(2, 2))
+        pygame.draw.rect(surf, GOLD if tier <= director.tier else STONE[0], rect)
+    color = SPIRIT[2] if director.in_band else EMBER[2] if director.score is not None else BONE
+    draw_text(surf, dda_score_text(director), (center_x, y + 9), color, shadow=INK, center=True)
+
+
+def draw_badge_panel(surf, rect):
+    """The framed box the DDA badge sits in on the map."""
+    _frame(surf, rect)
+
+
+def draw_notice(surf, text):
+    """A thin strip under the status plates, used to say that DDA changed the difficulty."""
+    band = pygame.Surface((320, 13), pygame.SRCALPHA)
+    band.fill((*INK, 200))
+    surf.blit(band, (0, 38))
+    pygame.draw.line(surf, GOLD, (0, 38), (320, 38))
+    pygame.draw.line(surf, GOLD, (0, 50), (320, 50))
+    draw_text(surf, text, (160, 41), GOLD, center=True)
+
+
 def draw_banner(surf, title, color, subtitle):
     band = pygame.Surface((320, 44), pygame.SRCALPHA)
     band.fill((*INK, 200))
