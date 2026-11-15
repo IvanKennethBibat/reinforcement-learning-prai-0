@@ -1,10 +1,10 @@
 rule,player,mean_score_after_20,share_in_band_after_20
-epsilon,novice (random),0.443,0.640
-epsilon,intermediate (scripted),0.507,0.501
-epsilon,skilled (expert),0.505,0.457
-rank,novice (random),0.473,0.693
-rank,intermediate (scripted),0.502,0.487
-rank,skilled (expert),0.505,0.494
-tolerance,novice (random),0.417,0.584
-tolerance,intermediate (scripted),0.497,0.441
-tolerance,skilled (expert),0.495,0.398
+epsilon,novice (random),0.453,0.669
+epsilon,intermediate (scripted),0.502,0.517
+epsilon,skilled (expert),0.502,0.449
+rank,novice (random),0.476,0.693
+rank,intermediate (scripted),0.501,0.462
+rank,skilled (expert),0.504,0.427
+tolerance,novice (random),0.411,0.592
+tolerance,intermediate (scripted),0.492,0.428
+tolerance,skilled (expert),0.500,0.428
