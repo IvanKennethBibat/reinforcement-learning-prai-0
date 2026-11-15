@@ -33,8 +33,11 @@ def test_a_winning_player_gets_a_harder_tier_and_a_losing_one_an_easier_tier():
 
 def test_inside_the_band_the_tier_holds_steady():
     director = DifficultyDirector(6, start=3)
-    for outcome in [W, L] * 20:
+    # Mixed results whose score stays within 0.45-0.60 from the first check (fight 3) onwards.
+    for outcome in [W, L, D, D] * 10:
         director.record(outcome)
+        if director.fights >= MIN_FIGHTS:
+            assert director.in_band
     assert director.tier == 3 and director.changes == []
 
 

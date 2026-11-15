@@ -37,11 +37,11 @@ def test_slimes_are_played_by_the_trained_agent_at_the_dda_tier():
     assert battle.opponent.tier == game.director.tier
 
 
-def test_the_boss_plays_one_tier_harder_but_never_past_the_top():
+def test_the_boss_plays_at_the_dda_tier_like_every_slime():
     game = Game(seed=0)
-    assert start_fight(game, "B").opponent.tier == game.director.tier + 1
-    game.director.tier = len(game.pool) - 1
-    assert start_fight(game, "B").opponent.tier == len(game.pool) - 1
+    for tier in (0, len(game.pool) - 1):
+        game.director.tier = tier
+        assert start_fight(game, "B").opponent.tier == tier
 
 
 def test_each_fight_is_recorded_once_from_the_players_side():
@@ -111,3 +111,45 @@ def test_dda_lines_show_tier_score_and_target():
     game.director.record(Outcome.WIN)
     text = " ".join(dda_lines(game.director))
     assert "TIER" in text and "SCORE 1.00 (1/10)" in text and "TARGET 0.40-0.60" in text
+
+
+def test_a_tier_change_is_announced_once_at_the_start_of_the_next_fight():
+    game = Game(seed=0)
+    assert start_fight(game).notice is None, "no change yet, so no notice"
+    game.director.tier += 1
+    battle = start_fight(game)
+    assert battle.notice.startswith("DIFFICULTY UP") and battle.showing_notice
+    assert start_fight(game).notice is None, "announced once, not every fight"
+    game.director.tier -= 2
+    assert start_fight(game).notice.startswith("DIFFICULTY DOWN")
+
+
+def test_the_difficulty_notice_fits_the_screen_and_clears_when_play_starts():
+    from ui.font import CHAR_WIDTH, GLYPHS
+    game = Game(seed=0)
+    game.director.tier += 1
+    battle = start_fight(game)
+    assert set(battle.notice) <= set(GLYPHS) and len(battle.notice) * CHAR_WIDTH <= WIDTH - 8
+    battle.choose(Move.DEFEND)
+    assert not battle.showing_notice
+
+
+def test_dda_badge_shows_the_win_rate_and_fits_between_the_plates():
+    from ui import hud
+    from ui.font import CHAR_WIDTH, GLYPHS
+    game = Game(seed=0)
+    assert hud.dda_score_text(game.director) == "WIN RATE -"
+    for outcome in (Outcome.WIN, Outcome.LOSS, Outcome.WIN, Outcome.WIN):
+        game.director.record(outcome)
+    text = hud.dda_score_text(game.director)
+    assert text == "WIN RATE 0.75" and set(text) <= set(GLYPHS)
+    assert len(text) * CHAR_WIDTH <= 84, "the gap between the two status plates is 84 px"
+
+
+def test_dda_badge_is_drawn_on_the_map_and_in_battle():
+    game = Game(seed=0)
+    surf = pygame.Surface((WIDTH, HEIGHT))
+    game.draw(surf)
+    start_fight(game).draw(surf)
+    game.director = None
+    game.draw(surf)  # no pool: no badge, and no crash

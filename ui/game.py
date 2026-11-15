@@ -60,6 +60,7 @@ class Game:
         self.pool = load_pool() if pool == "trained" else pool
         # One director for the whole session, so difficulty follows the player across fights.
         self.director = DifficultyDirector(len(self.pool)) if self.pool else None
+        self.last_tier = self.director.tier if self.director else None
         self.debug = False
         _prepare()
         self.new_game()
@@ -78,12 +79,19 @@ class Game:
     def npc_for(self, foe):
         """The trained agent at the DDA's tier, or the foe's own bot without a pool.
 
-        The boss plays one tier above the rest.
+        Every foe, the boss included, plays at exactly the tier DDA picked (the tier the badge shows).
         """
         if self.pool is None:
             return foe.policy
-        tier = min(len(self.pool) - 1, self.director.tier + (1 if foe.is_boss else 0))
-        return self.pool.policy(tier)
+        return self.pool.policy(self.director.tier)
+
+    def difficulty_notice(self):
+        """A line telling the player DDA changed the tier since their last fight, or None."""
+        if self.director is None or self.director.tier == self.last_tier:
+            return None
+        harder = self.director.tier > self.last_tier
+        self.last_tier = self.director.tier
+        return "DIFFICULTY UP: FOES PLAY SMARTER" if harder else "DIFFICULTY DOWN: FOES EASE OFF"
 
     def _begin_fight(self, key):
         foe = ENCOUNTERS[key]
@@ -95,6 +103,7 @@ class Game:
             on_finish=self._fight_over,
             on_rematch=self._rematch,
             director=self.director,
+            notice=self.difficulty_notice(),
         )
         self.battle.debug = self.debug
 
@@ -152,6 +161,9 @@ class Game:
             self.battle.draw(surf)
         else:
             self.world.draw(surf)
+            if self.director is not None:
+                hud.draw_badge_panel(surf, pygame.Rect(WIDTH - 84, 3, 81, 24))
+                hud.draw_dda_badge(surf, self.director, WIDTH - 43, 7)
             if self.finished:
                 hud.draw_banner(surf, "HOORAY!", GOLD, "THE VALLEY IS SAFE. PRESS ENTER")
             if self.debug:

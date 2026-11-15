@@ -12,7 +12,7 @@ from battle.engine import Outcome
 
 WINDOW = 10
 TARGET_BAND = (0.4, 0.6)
-MIN_FIGHTS = 5     # fights before the first adjustment
+MIN_FIGHTS = 3     # fights before the first adjustment (with COOLDOWN = 3, the first change can come after fight 3)
 COOLDOWN = 3       # fights between adjustments
 
 PLAYER_SCORE = {Outcome.WIN: 1.0, Outcome.DRAW: 0.5, Outcome.LOSS: 0.0}
